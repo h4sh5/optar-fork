@@ -23,7 +23,7 @@ jobs:
     - name: compile
       run: make -j2
 
-    - uses: upload-artifact@v4
+    - uses: actions/upload-artifact@v4
       with:
         name: optar_binaries
         path: |
