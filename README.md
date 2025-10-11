@@ -1,3 +1,19 @@
+# Optar
+
+<img src=docs/optar_strip.png>
+
+**This repo is a maintenance and modernization fork of Optar - OPTical ARchiver**. It was written around 2007 by Twibright Labs. Thanks to the magical ability of projects written in C to pretty much work forever, it's has survived bitrot (and even works in 2025 on a apple silicone macbook).
+
+The goal of this repo is to provide more visibility of this project, while working towards a browser-only optar web application that can optar/unoptar files on any browser without a server or the need to compile any of the code yourself.
+
+## What is Optar?
+
+Optar stands for OPTical ARchiver. It's a codec for encoding data on paper or free software 2D barcode in other words. Optar fits 200kB on an A4 page, then you print it with a laser printer (at 600dpi for best results). If you want to read the recording, scan it with a scanner and feed into the decoder program. A practical level of reliability is ensured using forward error correction code (FEC). Automated processing of page batches facilitates storage of files larger than 200kB.
+
+
+Old README:
+
+```
 Twibright Optar
 ---------------
 
@@ -115,3 +131,4 @@ Future improvement
 See COPYING for the text of the GPL license.
 e-mail: clock (at) twibright (dot) com
 Twibright Optar homepage: http://ronja.twibright.com/optar/
+```
