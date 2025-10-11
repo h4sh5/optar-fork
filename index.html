@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>optar -> PDF (browser only)</title>
+<style>
+  body{font-family:system-ui, sans-serif; margin:2rem}
+  button{margin-top:1rem}
+  #log{white-space:pre-wrap; font-size:.8rem; background:#f6f6f6; padding:.5rem; max-height:12rem; overflow:auto}
+</style>
+</head>
+<body>
+
+<h1>optar -> PDF</h1>
+<input type="file" id="fileInput">
+<button id="runBtn" disabled>Run optar & convert to PDF</button>
+<div id="log"></div>
+
+<!-- 1. Emscripten glue for optar -->
+<script src="./wasm/optar.js"></script>
+
+<!-- 2. MagickWasm (browser ImageMagick) -->
+<!-- <script type='module' src="https://unpkg.com/wasm-imagemagick@1.2.8/dist/bundles/magickApi.js"></script> -->
+
+<script>
+const log = (...args) => {
+  const box = document.getElementById('log');
+  box.textContent += args.join(' ') + '\n';
+  box.scrollTop = box.scrollHeight;
+};
+const downloadBlob = (blob, name) => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+
+const fileInput = document.getElementById('fileInput');
+const runBtn    = document.getElementById('runBtn');
+runBtn.disabled = !fileInput.files.length;
+
+fileInput.addEventListener('change', () => {
+  runBtn.disabled = !fileInput.files.length;
+});
+
+
+runBtn.addEventListener('click', async () => {
+  runBtn.disabled = true;
+  log('Starting...');
+
+  const file = fileInput.files[0];
+  if (!file) {
+    console.log("no file, returning..");
+  }
+  const FS = this.FS;
+  console.log('FS:', this.FS);
+  const node = file.name.replace(/[^a-z0-9_.-]/gi, '_');
+  // const buf  = new Uint8Array(await file.arrayBuffer());
+  const buf = await file.arrayBuffer();
+  console.log('buf:', buf);
+
+  var reader = new FileReader();
+  reader.onload = async function() {
+    var fileString = new TextDecoder('utf-8').decode(this.result);
+    console.log('file content:', fileString);
+
+    FS.writeFile('/' + node, fileString);
+    log('wrote', node, 'to MEMFS');
+    run(['/'+node, node + '_']);
+    log('optar finished');
+
+    const files = FS.readdir('/').filter(n => n.endsWith('.pgm'));
+    if (!files.length) { log('No .pgm files produced'); return; }
+
+    /* ---------- 3. ImageMagick conversions ---------- */
+    for (const pgmName of files) {
+      const pgmData   = FS.readFile('/' + pgmName);
+      const pgmBlob   = new Blob([pgmData], {type:'image/x-portable-graymap'});
+      console.log(`${pgmName}:`,pgmData);
+    }
+    log('Done.');
+    runBtn.disabled = false;
+
+    return; 
+  }
+  reader.readAsArrayBuffer(file);
+});
+
+</script>
+</body>
+</html>

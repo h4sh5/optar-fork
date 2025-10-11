@@ -4651,7 +4651,7 @@ var wasmExports;
 // instance is received.
 createWasm();
 
-run();
+// run();
 
 // end include: postamble.js
 
