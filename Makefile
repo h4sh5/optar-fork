@@ -1,6 +1,6 @@
 LDFLAGS=-L/usr/local/lib `libpng-config --L_opts`
-CFLAGS=-O3 -Wall -Wuninitialized -fomit-frame-pointer -funroll-loops \
-	-fstrength-reduce -DNODEBUG `libpng-config --I_opts`
+#add -sUSE_LIBPNG=1 for emcc
+CFLAGS=-O3 -Wall -Wuninitialized -fomit-frame-pointer -funroll-loops -fstrength-reduce -DNODEBUG `libpng-config --I_opts`
 LDLIBS=-lpng -lz -lm
 
 all: optar unoptar
@@ -16,7 +16,7 @@ uninstall:
 	rm /usr/local/bin/pgm2ps
 
 clean:
-	rm -f optar unoptar golay golay_codes.c *.o
+	rm -f optar unoptar golay  *.o
 
 common.o: common.c optar.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
@@ -38,9 +38,6 @@ unoptar.o: unoptar.c optar.h parity.h
 
 optar: optar.o common.o golay_codes.o parity.o
 	$(CC) $(LDFLAGS) -o $@ $^
-
-golay_codes.c: golay
-	./$< > $@
 
 golay: golay.o parity.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
