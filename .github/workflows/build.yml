@@ -26,4 +26,3 @@ jobs:
         path: |
           optar
           unoptar
-          pgm2ps
