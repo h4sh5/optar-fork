@@ -14,11 +14,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: install gcc
-      run: apt install gcc -y
-      
     - name: install pre-reqs
-      run: apt install libpng-dev  -y
+      run: apt install gcc libpng-dev  -y
 
     - name: compile
       run: make -j2
