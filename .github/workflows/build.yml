@@ -1,0 +1,32 @@
+name: Run build
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: install gcc
+      run: apt install gcc
+      
+    - name: install pre-reqs
+      run: apt install libpng-dev  -y
+
+    - name: compile
+      run: make -j2
+
+    - uses: upload-artifact@v4
+      with:
+        name: optar_binaries
+        path: |
+          optar
+          unoptar
+          pgm2ps
