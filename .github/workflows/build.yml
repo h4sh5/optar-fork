@@ -15,7 +15,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: install pre-reqs
-      run: apt install gcc libpng-dev make -y
+      run: sudo apt install gcc libpng-dev make -y
 
     - name: compile
       run: make -j2
