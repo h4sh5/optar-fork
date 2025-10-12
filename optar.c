@@ -140,52 +140,53 @@ void crosses(void)
 }
 
 /* x is in the range 0 to data_width-1 */
-void text_block (unsigned int destx,  unsigned int srcx, unsigned int width)
+void text_block (unsigned int destx,  unsigned int srcx, unsigned int txt_width)
 {
 	int x, y;
 	unsigned char *srcptr;
 	unsigned char *destptr;
 
-	if (destx+width>data_width) return; /* Letter doesn't fit */
+	if (destx+txt_width>data_width) {
+		fprintf(stderr, "letter doesn't fit (destx:%u srcx:%u txt_width:%d)\n",destx,srcx,txt_width);
+		return; /* Letter doesn't fit */
+	}
 
 	srcptr=(unsigned char *)(void *)header_data+srcx;
-	destptr= ary+ width*(border+data_height)+border+destx;
+	destptr= ary + width*(border+data_height)+border+destx;
 
 	for (y=0;y<text_height;y++, srcptr+=font_width, destptr+=width){
-		for (x=0;x<width;x++){
+		for (x=0;x<txt_width;x++){
 			destptr[x]=header_data_cmap[srcptr[x]][0]&0x80?0xff:0;
 		}
 	}
 }
 
-void label(void)
+void label()
 {
 	unsigned x=0;
-	// char *txt = malloc(data_width/text_width);
 	char txt[data_width/text_width];
+	int txtsz = sizeof txt;
 	unsigned char *ptr;
 	unsigned txtlen;
-
-	snprintf(txt, sizeof txt, "  0-%u-%u-%u-%u-%u-%u-%u %u/%u %s"
+	// fprintf(stderr, "font_width:%d font_height:%d text_width:%d\n",font_width,font_height, text_width);
+	snprintf(txt, txtsz, "  0-%u-%u-%u-%u-%u-%u-%u %u/%u %s"
 		, xcrosses, ycrosses, cpitch, chalf
 		, FEC_ORDER, border, text_height
 		,file_number,n_pages
-		, (char *)(void *)file_label);
+		, file_label);
 	txtlen=strlen((char *)(void *)txt);
+	// fprintf(stderr, "txt:%s strlen:%d\n",txt,txtlen);
 
 	assert(font_height==text_height);
-	x=font_width-text_width*(127-' ');
-	text_block(0,text_width*(127-' '), x);
+	x=font_width - text_width * (127-' ');
+	text_block(0,text_width * (127-' '), x);
 	for (ptr=(unsigned char *)(void *)txt
 			;ptr<(unsigned char *)(void *)txt+txtlen;ptr++){
-		if (*ptr>=' '&&*ptr<=127){
+		if (*ptr>=' ' && *ptr<=127){ // ascii printable range
 			text_block(x,text_width*(*ptr-' '), text_width);
 			x+=text_width;
 		}
 	}
-
-	// free(txt);
-
 }
 
 void format_ary(void)
@@ -342,25 +343,19 @@ int main(int argc, char **argv)
 	fprintf(stderr, "width:%d height:%d\n",width,height);
 	ary = malloc(width*height);
 	ary_size = width*height;
-	fprintf(stderr, "doing open_input_file\n");
 	open_input_file(argv[1]);
-	fprintf(stderr, "done open_input_file\n");
 
 	if (argc>=3) file_label=base=(void *)argv[2];
-	fprintf(stderr, "file_label: %s\n", file_label);
+	// fprintf(stderr, "file_label: %s\n", file_label);
 	output_filename_buffer_size=strlen((char *)(void *)file_label)+1+4+1+3+1;
 	output_filename=malloc(output_filename_buffer_size);
 	if (!output_filename){
 		fprintf(stderr,"Cannot allocate output filename\n");
 		exit(1);
 	}
-	fprintf(stderr, "doing new_file\n");
 	new_file();
-	fprintf(stderr, "done new_file\n");
-
-	fprintf(stderr, "doing feed_data\n");
 	feed_data();
-	fprintf(stderr, "done feed_data\n");
+	printf("format: 0-%u-%u-%u-%u-%u-%u-%u\n", xcrosses, ycrosses,cpitch, chalf, FEC_ORDER, border, text_height);
 
 	fclose(input_stream);
 

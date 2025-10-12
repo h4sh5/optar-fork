@@ -8,7 +8,6 @@
 unsigned data_width;
 unsigned data_height;
 unsigned width;
-unsigned text_width;
 
 /* Properties of the narrow horizontal strip, with crosses */
 unsigned narrowheight;
@@ -29,12 +28,12 @@ unsigned fec_syms;
 unsigned netbits;
 unsigned usedbits;
 
-extern unsigned border = 2;
-extern unsigned chalf = 3;
-extern unsigned cpitch = 24;
-extern unsigned xcrosses = 32;
-extern unsigned ycrosses = 46;
-extern unsigned text_width = 13;
+unsigned border = 2;
+unsigned chalf = 3;
+unsigned cpitch = 24;
+unsigned xcrosses = 32;
+unsigned ycrosses = 46;
+unsigned text_width = 13; // has to be 13!! Do not change!
 
 /* initialize rest of the values based on xcrosses and ycrosses */
 void init_values(unsigned xcrosses_input, unsigned ycrosses_input) {
