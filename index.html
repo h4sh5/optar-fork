@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>optar -> PDF (browser only)</title>
+<title>optar</title>
 <style>
   body{font-family:system-ui, sans-serif; margin:2rem}
   button{margin-top:1rem}
@@ -11,9 +11,18 @@
 </head>
 <body>
 
-<h1>optar -> PDF</h1>
+<h1>OPTAR (OPTical ARchiver)</h1>
+<p>Backup any file with printable paper copies. Originally made by <a href=https://ronja.twibright.com/optar/ target=_blank>Twibright Labs</a>.</p>
+<form>
 <input type="file" id="fileInput">
-<button id="runBtn" disabled>Run optar & convert to PDF</button>
+<button id="runBtn" disabled>Run optar</button>
+<nbsp>
+<span>xcrosses: <input type="number" id="xcrosses" value=32 placeholder="32" style="width: 3em">
+ycrosses: <input type="number" id="ycrosses" value=46 placeholder="46" style="width: 3em"></span> <abbr title="a bigger x y value will increase the amount of data encoded on a page (e.g. 65 93 will encode 200KB per A4 page), but will need more powerful printers and scanners (1200+dpi). The default 32 46 encodes 50KB per page.">
+ <span>&#xFE56;<span/></abbr>
+<input type="reset"/>
+</span>
+
 <div id="log"></div>
 
 <!-- 1. Emscripten glue for optar -->
@@ -39,6 +48,8 @@ const downloadBlob = (blob, name) => {
 
 const fileInput = document.getElementById('fileInput');
 const runBtn    = document.getElementById('runBtn');
+const xInput = document.getElementById('xcrosses');
+const yInput = document.getElementById('ycrosses');
 runBtn.disabled = !fileInput.files.length;
 
 fileInput.addEventListener('change', () => {
@@ -48,7 +59,7 @@ fileInput.addEventListener('change', () => {
 
 runBtn.addEventListener('click', async () => {
   runBtn.disabled = true;
-  log('Starting...');
+  log('Starting... (please refresh the page before encoding another file)');
 
   const file = fileInput.files[0];
   if (!file) {
@@ -65,7 +76,14 @@ runBtn.addEventListener('click', async () => {
 
     FS.writeFile('/' + node, fileString);
     log('wrote', node, 'to MEMFS');
-    run(['/'+node, node + '_']);
+
+    var xval = "32";
+    var yval = "46";
+    if ((xInput.value != "") && (yInput.value != "")) {
+      xval = xInput.value;
+      yval = yInput.value;
+    }
+    run(['/'+node, node, xval, yval]);
     log('optar finished');
 
     const files = FS.readdir('/').filter(n => n.endsWith('.pgm'));
