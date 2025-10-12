@@ -13,10 +13,12 @@
 
 #include "optar.h"
 #include "parity.h"
-#define HEIGHT (2*BORDER+DATA_HEIGHT+TEXT_HEIGHT)
-#define TEXT_HEIGHT 24
+static unsigned height;
+static unsigned text_height = 24;
 
-static unsigned char ary[WIDTH*HEIGHT];
+// width is in optar.h
+static unsigned char *ary; //ptr to a 2d array 
+static unsigned ary_size;
 static unsigned char *file_label=(unsigned char *)""; /* The filename written in the
 					file_label */
 static char *output_filename; /* The output filename */
@@ -33,9 +35,9 @@ void dump_ary(void)
 		"P5\n"
 		"%u %u\n"
 		"255\n"
-		,WIDTH, HEIGHT);
+		,width, height);
 
-	fwrite(ary, sizeof(ary), 1, output_stream);
+	fwrite(ary, ary_size, 1, output_stream);
 }
 
 /* Only the LSB is significant. Writes hamming-encoded bits. The sequence number
@@ -48,9 +50,10 @@ void write_channelbit(unsigned char bit, unsigned long seq)
 	bit=-bit;
 	bit=~bit; /* White=bit 0, black=bit 1 */
 	seq2xy(&x, &y, seq); /* Returns without borders! */
-	x+=BORDER;
-	y+=BORDER;
-	ary[x+y*WIDTH]=bit;
+	x+=border;
+	y+=border;
+	// *ary[x+y*width]=bit;
+	ary[x+y*width]=bit;
 	seq++;
 }
 
@@ -91,34 +94,36 @@ unsigned long hamming(unsigned long in)
 	return in;
 }
 
-void border(void)
+void do_border(void)
 {
 	unsigned c;
-	char *ptr=(char *)(void *)ary;
+	unsigned char *ptr = ary;
 
-	memset(ptr,0,BORDER*WIDTH);
-	ptr+=BORDER*WIDTH;
-	for (c=DATA_HEIGHT;c;c--){
-		memset(ptr,0,BORDER);
-		ptr+=WIDTH;
-		memset(ptr-BORDER,0,BORDER);
+	memset(ptr,0,border*width);
+	// fprintf(stderr, "[do_border] done 1st memset..\n");
+	ptr += border*width;
+	for (c=data_height;c;c--){
+		memset(ptr,0,border);
+		ptr+=width;
+		memset(ptr-border,0,border);
 	}
-	memset(ptr,0,TEXT_HEIGHT*WIDTH);
-	ptr+=TEXT_HEIGHT*WIDTH;
-	/* BORDER bytes into the bottom border */
-	memset(ptr,0,BORDER*WIDTH);
+	memset(ptr,0,text_height*width);
+	ptr+=text_height*width;
+	/* border bytes into the bottom border */
+	memset(ptr,0,border*width);
 }
 
-void cross(unsigned int x, unsigned int y)
+void do_cross(unsigned int x, unsigned int y)
 {
-	unsigned char *ptr=ary+y*WIDTH+x;
+	unsigned char *ptr = ary + y*width + x;
 	unsigned c;
 
-	for (c=CHALF;c;c--,ptr+=WIDTH){
-		memset(ptr,0,CHALF);
-		memset(ptr+CHALF,0xff,CHALF);
-		memset(ptr+CHALF*WIDTH,0xff,CHALF);
-		memset(ptr+CHALF*(WIDTH+1),0,CHALF);
+	for (c=chalf;c!=0;c--,ptr+=width){
+		memset(ptr,0,chalf);
+		memset(ptr+chalf,0xff,chalf);
+		memset(ptr+chalf*width,0xff,chalf);
+		memset(ptr+chalf*(width+1),0,chalf);
+		
 	}
 }
 
@@ -126,64 +131,75 @@ void crosses(void)
 {
 	unsigned x,y;
 
-	for (y=BORDER;y<=HEIGHT-TEXT_HEIGHT-BORDER-2*CHALF;y+=CPITCH)
-		for (x=BORDER;x<=WIDTH-BORDER-2*CHALF;x+=CPITCH)
-			cross(x,y);
+	for (y=border;y<=height-text_height-border-2*chalf;y+=cpitch)
+		for (x=border;x<=width-border-2*chalf;x+=cpitch) {
+			// fprintf(stderr, "[crosses] x:%d y:%d\n", x,y);
+			do_cross(x,y);
+
+		}
 }
 
-/* x is in the range 0 to DATA_WIDTH-1 */
-void text_block (unsigned int destx,  unsigned int srcx, unsigned int width)
+/* x is in the range 0 to data_width-1 */
+void text_block (unsigned int destx,  unsigned int srcx, unsigned int txt_width)
 {
 	int x, y;
 	unsigned char *srcptr;
 	unsigned char *destptr;
 
-	if (destx+width>DATA_WIDTH) return; /* Letter doesn't fit */
+	if (destx+txt_width>data_width) {
+		fprintf(stderr, "letter doesn't fit (destx:%u srcx:%u txt_width:%d)\n",destx,srcx,txt_width);
+		return; /* Letter doesn't fit */
+	}
 
 	srcptr=(unsigned char *)(void *)header_data+srcx;
-	destptr=ary+WIDTH*(BORDER+DATA_HEIGHT)+BORDER+destx;
+	destptr= ary + width*(border+data_height)+border+destx;
 
-	for (y=0;y<TEXT_HEIGHT;y++, srcptr+=font_width, destptr+=WIDTH){
-		for (x=0;x<width;x++){
+	for (y=0;y<text_height;y++, srcptr+=font_width, destptr+=width){
+		for (x=0;x<txt_width;x++){
 			destptr[x]=header_data_cmap[srcptr[x]][0]&0x80?0xff:0;
 		}
 	}
 }
 
-void label(void)
+void label()
 {
 	unsigned x=0;
-	static char txt[DATA_WIDTH/TEXT_WIDTH];
+	char txt[data_width/text_width];
+	int txtsz = sizeof txt;
 	unsigned char *ptr;
 	unsigned txtlen;
-
-	snprintf(txt, sizeof txt, "  0-%u-%u-%u-%u-%u-%u-%u %u/%u %s"
-		, XCROSSES, YCROSSES, CPITCH, CHALF
-		, FEC_ORDER, BORDER, TEXT_HEIGHT
+	// fprintf(stderr, "font_width:%d font_height:%d text_width:%d\n",font_width,font_height, text_width);
+	snprintf(txt, txtsz, "  0-%u-%u-%u-%u-%u-%u-%u %u/%u %s"
+		, xcrosses, ycrosses, cpitch, chalf
+		, FEC_ORDER, border, text_height
 		,file_number,n_pages
-		, (char *)(void *)file_label);
+		, file_label);
 	txtlen=strlen((char *)(void *)txt);
+	// fprintf(stderr, "txt:%s strlen:%d\n",txt,txtlen);
 
-	assert(font_height==TEXT_HEIGHT);
-	x=font_width-TEXT_WIDTH*(127-' ');
-	text_block(0,TEXT_WIDTH*(127-' '), x);
+	assert(font_height==text_height);
+	x=font_width - text_width * (127-' ');
+	text_block(0,text_width * (127-' '), x);
 	for (ptr=(unsigned char *)(void *)txt
 			;ptr<(unsigned char *)(void *)txt+txtlen;ptr++){
-		if (*ptr>=' '&&*ptr<=127){
-			text_block(x,TEXT_WIDTH*(*ptr-' '), TEXT_WIDTH);
-			x+=TEXT_WIDTH;
+		if (*ptr>=' ' && *ptr<=127){ // ascii printable range
+			text_block(x,text_width*(*ptr-' '), text_width);
+			x+=text_width;
 		}
 	}
-
 }
 
 void format_ary(void)
 {
-	memset(ary, 0xff, sizeof(ary)); /* White */
-	border();
-	crosses();
-	label();
 
+	memset(ary, 0xff, ary_size); /* White */
+	// fprintf(stderr,"format_ary: done memset\n");
+	do_border();
+	// fprintf(stderr,"format_ary: done do_border\n");
+	crosses();
+	// fprintf(stderr,"format_ary: done crosses\n");
+	label();
+	// fprintf(stderr,"format_ary: done label\n");
 }
 
 /* Always formats ary. Dumps it if it's not the first one. */
@@ -226,7 +242,7 @@ void write_payloadbit(unsigned char bit)
 		accu=hamming(accu);
 #endif /* FEC_ORDER */
 
-		if (hamming_symbol>=FEC_SYMS){
+		if (hamming_symbol>=fec_syms){
 			/* We couldn't write into the page, we need to make
 			 * another one */
 			new_file();
@@ -237,7 +253,7 @@ void write_payloadbit(unsigned char bit)
 		for (shift=FEC_LARGEBITS-1;shift>=0;shift--)
 			write_channelbit(accu>>shift
 				, hamming_symbol+(FEC_LARGEBITS-1-shift)
-				*FEC_SYMS);
+				*fec_syms);
 		accu=1;
 		hamming_symbol++;
 	}
@@ -286,8 +302,8 @@ void open_input_file(char *fname)
 		perror("");
 		exit(1);
 	}
-	n_pages=(((unsigned long)ftell(input_stream)<<3)+NETBITS-1)
-		/NETBITS;
+	n_pages=(((unsigned long)ftell(input_stream)<<3)+netbits-1)
+		/netbits;
 	if (fseek(input_stream,0, SEEK_SET)){
 		fprintf(stderr,"optar: cannot seek to the beginning of %s: "
 			,fname);
@@ -305,23 +321,33 @@ int main(int argc, char **argv)
 	if (argc<2){
 		fprintf(stderr,
 "\n"
-"Usage: optar <input file> [filename base]\n"
+"Usage: optar <input file> [filename base] [xcrosses] [ycrosses]\n"
 "\n"
-"Will take the input file as data payload and produce optar_out_????.pgm"
-" which contain the input file encoded onto paper, with error"
-" correction codes, and automatically split into multiple"
-" files when necessary. Those pgm's are supposed to be printed"
-" on laser printer at least 600 DPI for example using GIMP, or use the included pgm2ps to"
-" convert them to PostScript and print for example"
-" using a PostScript viewer program.\n"
+"xcrosses and ycrosses have a default value of 32 x 46, increase them to encode more data on one page but sacrifices accuracy\n"
+"Will take the input file as data payload and produce optar_out_????.pgm which contain the input file encoded onto paper, with error correction codes, and automatically split into multiple files when necessary. Those pgm's are supposed to be printed on laser printer at least 600 DPI for example using GIMP, or use the included pgm2ps to  convert them to PostScript and print for example using a PostScript viewer program.\n"
 "\n"
 );
 		exit(1);
 	}
+
+	if (argc >= 4) {
+		xcrosses = atoi(argv[3]);
+		ycrosses = atoi(argv[4]);
+		fprintf(stderr, "taking arguments xcrosses=%d and ycrosses=%d\n", xcrosses, ycrosses);
+	}
+
+	fprintf(stderr,"initializing dimensions values using xcrosses=%d ycrosses=%d..\n", xcrosses, ycrosses);
+	init_values(xcrosses, ycrosses);
+	height= (2*border+data_height+text_height);
+	fprintf(stderr, "done initializing values..\n");
+	fprintf(stderr, "width:%d height:%d\n",width,height);
+	ary = malloc(width*height);
+	ary_size = width*height;
 	open_input_file(argv[1]);
 
 	if (argc>=3) file_label=base=(void *)argv[2];
-	output_filename_buffer_size=strlen((char *)(void *)base)+1+4+1+3+1;
+	// fprintf(stderr, "file_label: %s\n", file_label);
+	output_filename_buffer_size=strlen((char *)(void *)file_label)+1+4+1+3+1;
 	output_filename=malloc(output_filename_buffer_size);
 	if (!output_filename){
 		fprintf(stderr,"Cannot allocate output filename\n");
@@ -329,7 +355,11 @@ int main(int argc, char **argv)
 	}
 	new_file();
 	feed_data();
+	printf("format: 0-%u-%u-%u-%u-%u-%u-%u\n", xcrosses, ycrosses,cpitch, chalf, FEC_ORDER, border, text_height);
+
 	fclose(input_stream);
+
 	free(output_filename);
+	free(ary);
 	return 0;
 }
