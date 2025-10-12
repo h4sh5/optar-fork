@@ -1,45 +1,52 @@
 /* (c) GPL 2007 Karel 'Clock' Kulhavy, Twibright Labs */
 
+#ifndef OPTAR_H
+#define OPTAR_H
+
 #define MIN(x,y) ((x)<(y)?(x):(y))
 #define MAX(x,y) ((x)>(y)?(x):(y))
 
-#define BORDER 2 /* In pixels. Thickness of the border */
-#define CHALF 3 /* Size of the cross half. Size of the cross is CHALF*2 x CHALF*2.
+extern unsigned border; /* In pixels. Thickness of the border */
+extern unsigned chalf; /* Size of the cross half. Size of the cross is CHALF*2 x CHALF*2.
 		   */
-#define CPITCH 24 /* Distance between cross centers */
+extern unsigned cpitch; /* Distance between cross centers */
 
-/* XCROSSES A4 65, US Letter 67. */
-#define XCROSSES 65 /* Number of crosses horizontally */
-/* YCROSSES A4 93, US Letter 87. */
-#define YCROSSES 93 /* Number of crosses vertically */
+// XXX X-Y crosses reduced due to too much data loss (originally 65x93 / 200KB per page, at half size 32x46 which encodes 1/4 of data / 50KB a page)
+/* XCROSSES A4 65, US Letter 67. (originally)*/
+/* Number of crosses horizontally */
+extern unsigned xcrosses;
 
-#define DATA_WIDTH (CPITCH*(XCROSSES-1)+2*CHALF) /* The rectangle occupied by
-						    the data and crosses */
-#define DATA_HEIGHT (CPITCH*(YCROSSES-1)+2*CHALF)
-#define WIDTH (2*BORDER+DATA_WIDTH) /* In pixels, including the border */
+/* YCROSSES A4 93, US Letter 87. (originally)*/
+/* Number of crosses vertically */
+extern unsigned ycrosses;
+
+extern unsigned data_width; /* The rectangle occupied bythe data and crosses */
+extern unsigned data_height;
+extern unsigned width; /* In pixels, including the border */
 /* In pixels, including the border and the label */
 
-#define TEXT_WIDTH 13 /* Width of a single letter */
+extern unsigned text_width; /* Width of a single letter */
 
 /* Definitions for seq2xy */
 
 /* Properties of the narrow horizontal strip, with crosses */
-#define NARROWHEIGHT (2*CHALF)
-#define GAPWIDTH (CPITCH-2*CHALF)
-#define NARROWWIDTH (GAPWIDTH*(XCROSSES-1)) /* Useful width */
-#define NARROWPIXELS (NARROWHEIGHT*NARROWWIDTH) /* Useful pixels */
+extern unsigned narrowheight;
+extern unsigned gapwidth;
+extern unsigned narrowwidth; /* Useful width */
+extern unsigned narrowpixels; /* Useful pixels */
 
 /* Properties of the wide horizontal strip, without crosses */
-#define WIDEHEIGHT GAPWIDTH
-#define WIDEWIDTH (WIDTH-2*BORDER)
-#define WIDEPIXELS (WIDEHEIGHT*WIDEWIDTH)
+extern unsigned wideheight;
+extern unsigned widewidth;
+extern unsigned widepixels;
 
 /* Amount of raw payload pixels in one narrow-wide strip pair */
-#define REPHEIGHT (NARROWHEIGHT+WIDEHEIGHT)
-#define REPPIXELS (WIDEPIXELS+NARROWPIXELS)
+extern unsigned repheight;
+extern unsigned reppixels;
+
 
 /* Total bits before hamming including the unused */
-#define TOTALBITS ((long)REPPIXELS*(YCROSSES-1)+NARROWPIXELS)
+extern long totalbits;
 
 /* Hamming codes with parity */
 #define FEC_ORDER 1 /* Can be 2 to 5 inclusive. 
@@ -59,9 +66,9 @@
 #endif
 
 /* Hamming net channel capacity */
-#define FEC_SYMS (TOTALBITS/FEC_LARGEBITS)
-#define NETBITS (FEC_SYMS*FEC_SMALLBITS) /* Net payload bits */
-#define USEDBITS (FEC_SYMS*FEC_LARGEBITS) /* Used raw bits to store
+extern unsigned fec_syms;
+extern unsigned netbits; /* Net payload bits */
+extern unsigned usedbits; /* Used raw bits to store
 						     Hamming symbols */
 
 /* Functions from common.c */
@@ -75,3 +82,5 @@ unsigned ones(unsigned long in);
 /* Golay codes */
 unsigned long golay(unsigned long in);
 extern unsigned long golay_codes[4096];
+extern void init_values(unsigned xcrosses_input, unsigned ycrosses_input);
+#endif

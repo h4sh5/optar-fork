@@ -24,7 +24,7 @@ common.o: common.c optar.h
 parity.o: parity.c
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
-optar.o: optar.c optar.h font.h parity.h
+optar.o: optar.c optar.h font.h parity.h common.c
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 golay_codes.o: golay_codes.c
@@ -33,7 +33,11 @@ golay_codes.o: golay_codes.c
 golay.o: golay.c parity.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
-unoptar.o: unoptar.c optar.h parity.h
+# dynamically generated because of current header change? unsure why
+golay_codes.c: golay
+	./$< > $@
+
+unoptar.o: unoptar.c optar.h parity.h common.c
 	$(CC) -c -I/usr/local/include/libpng $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 optar: optar.o common.o golay_codes.o parity.o

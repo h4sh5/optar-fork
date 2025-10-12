@@ -35,7 +35,8 @@ struct que{
 	unsigned y;
 };
 
-static unsigned width, height; /* In pixels, not it symbols! The whole image including
+static unsigned height;
+static unsigned unoptar_width, unoptar_height; /* In pixels, not it symbols! The whole image including
 			   border, white surrounding etc. */
 static unsigned char *ary; /* Allocated to width*height */
 static unsigned char *newary; /* Allocated to width*height */
@@ -53,12 +54,10 @@ static unsigned long corners[4][2]; /* UL, UR, LL, LR / x, y. Integers in pixel 
 			   left corners. */
 static unsigned long leftedge, rightedge, topedge, bottomedge; /* Coordinates,
 	minima/maxima of the corner coordinates. */
-static double crosses[XCROSSES][YCROSSES][2]; /* [x][y][coord]. Integers in pixel
-					  upper left corners. */
-static float cutlevels[XCROSSES][YCROSSES]; /* Each cross has it's own cutlevel
-	based on how it came out printed. */
+static double ***crosses; /* (used to be crosses[XCROSSES][YCROSSES][2]) indexed via [x][y][coord]. Integers in pixel upper left corners. */
+static float **cutlevels; // [xcrosses][ycrosses]; Each cross has it's own cutlevel based on how it came out printed.
 static int chalf_fine; /* Larger chalf for fine search */
-static int chalf; /* In the input image, measured in input image pixels!
+static int unoptar_chalf; /* In the input image, measured in input image pixels!
 		   Important difference - in the decoding, the crosses are
 		   assumed twice as small!
 
@@ -143,6 +142,28 @@ static unsigned char *make_gamma_table(float gamma)
 
 	return t;
 }
+
+static void *allocate_3d_matrix(size_t size, size_t r1, size_t r2, size_t r3) {
+    size_t malloc_size = r1 * sizeof(char**) + r1 * r2 * sizeof(char*) + r1 * r2 * r3 * size;
+    char*** p = malloc(malloc_size);
+
+    char** r2_start = (char**) p + r1;  
+
+    for (int i = 0; i < r1; i++) {
+        p[i] = r2_start + i * r2;
+    }
+
+    char* r3_start = (char*) r2_start + (r1 * r2 * sizeof(char*));
+
+    for (int i = 0; i < r1; i++) {
+        for (int j = 0; j < r2; j++) {
+            p[i][j] = r3_start + size * (j + i * r2) * r3;
+        }
+    }
+
+    return p;
+}
+
 
 static void dump_newary(char *fname)
 {
@@ -272,7 +293,7 @@ static void diag_scan(int *outx, int *outy, int xin, int yin, int
 	int xbegin, x, y;
 	unsigned ctr, len;
 
-	for (xbegin=xin,len=1;xbegin<MIN(width,height);xbegin+=dx,len++){
+	for (xbegin=xin,len=1;xbegin<MIN(unoptar_width,unoptar_height);xbegin+=dx,len++){
 		x=xbegin;
 		y=yin;
 		for (ctr=len;ctr;ctr--,x-=dx,y+=dy){
@@ -382,7 +403,7 @@ fail:
 	bottomedge=MAX(corners[2][1],corners[3][1]);
 
 	hpixel=(corners[1][0]+corners[3][0]
-		-corners[0][0]-corners[0][0])/2.0/WIDTH;
+		-corners[0][0]-corners[0][0])/2.0/width;
 	vpixel=(corners[2][1]+corners[3][1]
 		-corners[0][1]-corners[1][1])/2.0/format_height;
 	fprintf(stderr,"One bit is %G horizontal pixels and %G "
@@ -394,16 +415,16 @@ fail:
 
 		/* Take only half to prevent spurious resync to an edge of the
 		 * cross when the data mimic the other half of the cross. */
-		hchalf=hpixel*CHALF*0.5;
-		vchalf=vpixel*CHALF*0.5;
+		hchalf=hpixel*chalf*0.5;
+		vchalf=vpixel*chalf*0.5;
 
-		chalf=MIN(hchalf, vchalf); 
+		unoptar_chalf=MIN(hchalf, vchalf); 
 		/* Round to zero to make sure we don't catch any chaff */
 
 		/* Trim the cross by some fraction of input pixel to remove
 		 * the area affected by crosstalk. */
-		hchalf=hpixel*(CHALF-cross_trim);
-		vchalf=vpixel*(CHALF-cross_trim);
+		hchalf=hpixel*(chalf-cross_trim);
+		vchalf=vpixel*(chalf-cross_trim);
 
 		chalf_fine=MIN(hchalf, vchalf);
 	}
@@ -630,8 +651,8 @@ static void cross_stats(unsigned cx, unsigned cy)
 {
 	double centerx=crosses[cx][cy][0];
 	double centery=crosses[cx][cy][1];
-	int hpixelhalf=floor(hpixel*(CHALF-cross_trim));
-	int vpixelhalf=floor(vpixel*(CHALF-cross_trim));
+	int hpixelhalf=floor(hpixel*(chalf-cross_trim));
+	int vpixelhalf=floor(vpixel*(chalf-cross_trim));
 	float black_rms=0, white_rms=0;
 	int xoff, yoff;
 	long val;
@@ -777,32 +798,32 @@ static void sync_crosses(void)
 
 	/* Calculate the estimated cross pitch vectors */
 	rightx=((double)corners[1][0]+corners[3][0]-corners[0][0]-corners[2][0])
-		/2*CPITCH/WIDTH;
+		/2*cpitch/width;
 	righty=((double)corners[1][1]+corners[3][1]-corners[0][1]-corners[2][1])
-		/2*CPITCH/WIDTH;
+		/2*cpitch/width;
 	downx=((double)corners[2][0]+corners[3][0]-corners[0][0]-corners[1][0])
-		/2*CPITCH/format_height;
+		/2*cpitch/format_height;
 	downy=((double)corners[2][1]+corners[3][1]-corners[0][1]-corners[1][1])
-		/2*CPITCH/format_height;
+		/2*cpitch/format_height;
 
 	/* Load the upper left cross with an estimate of it's position */
 	crosses[0][0][0]=bilinear(
 		corners[0][0], corners[1][0],
 		corners[2][0], corners[3][0],
-		(double)(BORDER+CHALF)/WIDTH,
-		(double)(BORDER+CHALF)/format_height);
+		(double)(border+chalf)/width,
+		(double)(border+chalf)/format_height);
 	crosses[0][0][1]=bilinear(
 		corners[0][1], corners[1][1],
 		corners[2][1], corners[3][1],
-		(double)(BORDER+CHALF)/WIDTH,
-		(double)(BORDER+CHALF)/format_height);
+		(double)(border+chalf)/width,
+		(double)(border+chalf)/format_height);
 
 	fprintf(stderr,"Finding crosses (%u lines), numbers indicate "
-			"individual cutlevels:\n", YCROSSES);
+			"individual cutlevels:\n", ycrosses);
 
-	for (cy=0;cy<YCROSSES;cy++){
+	for (cy=0;cy<ycrosses;cy++){
 		fprintf(stderr,"%3u: ",cy);
-		for (cx=0;cx<XCROSSES;cx++){
+		for (cx=0;cx<xcrosses;cx++){
 			if (cx>0){
 				/* Copy from left */
 				crosses[cx][cy][0]=crosses[cx-1][cy][0]+rightx;
@@ -831,21 +852,21 @@ static void bit_coord(double *xout, double *yout, float *cutlevel,
 
 	/* First find the cross numbers */
 	/* Division of negative numbers is probably undefined in C! */
-	if (x<CHALF) cx=0;
-	else cx=(x-CHALF)/CPITCH;
-	if (y<CHALF) cy=0;
-	else cy=(y-CHALF)/CPITCH;
-	if (cx>XCROSSES-2) cx=XCROSSES-2;
-	if (cy>YCROSSES-2) cy=YCROSSES-2;
+	if (x<chalf) cx=0;
+	else cx=(x-chalf)/cpitch;
+	if (y<chalf) cy=0;
+	else cy=(y-chalf)/cpitch;
+	if (cx>xcrosses-2) cx=xcrosses-2;
+	if (cy>ycrosses-2) cy=ycrosses-2;
 
 	/* Now subtrack cross coordinate */
-	x-=cx*CPITCH+CHALF;
-	y-=cy*CPITCH+CHALF;
+	x-=cx*cpitch+chalf;
+	y-=cy*cpitch+chalf;
 	/* x,y now the remainders. Can be negative or more than CPITCH! */
 
 	/* Calculate double precision remainders about from 0 to 1 (not always) */
-	xrem=((double)x+0.5)/CPITCH;
-	yrem=((double)y+0.5)/CPITCH;
+	xrem=((double)x+0.5)/cpitch;
+	yrem=((double)y+0.5)/cpitch;
 
 	xd=bilinear(
 		crosses[cx][cy][0], crosses[cx+1][cy][0],
@@ -964,7 +985,7 @@ static void print_badbit(unsigned symbol, unsigned bit, unsigned dir)
 		bad_total++;
 	}
 
-	seq=symbol+bit*FEC_SYMS;
+	seq=symbol+bit*fec_syms;
 	seq2xy(&x, &y, seq);
 	bit_coord(&xd, &yd, NULL, x, y);
 	xd=floor(xd+0.5);
@@ -986,8 +1007,8 @@ static void print_badbit_finish(void)
 				"%G%% black dirt, %G%% white dirt and "
 				"%lu (%G%%) irreparable.\n",
 				bad_total,
-				USEDBITS, 
-				100*(double)(bad_total)/USEDBITS,
+				usedbits, 
+				100*(double)(bad_total)/usedbits,
 				100*(double)bad_01/(bad_total),
 				100*(double)bad_10/(bad_total),
 				irreparable,
@@ -1171,11 +1192,11 @@ static void read_syms(void)
 
 	reset_stats();
 
-	for (hamming_sym=0;hamming_sym<FEC_SYMS;hamming_sym++){
+	for (hamming_sym=0;hamming_sym<fec_syms;hamming_sym++){
 		for (bit=0;bit<FEC_LARGEBITS;bit++){
 			/* Bit here will correspond to bit FEC_SMALLBITS-1
 			 * in the Hamming register. */
-			seq=hamming_sym+bit*FEC_SYMS;
+			seq=hamming_sym+bit*fec_syms;
 			seq2xy(&x, &y, seq);
 			bit_coord(&xcoord, &ycoord, &local_cutlevel, x, y);
 			pixval=pixel_correct_sample(xcoord, ycoord);
@@ -1205,9 +1226,9 @@ static void read_syms(void)
 static void print_chan_info(void)
 {
 	fprintf(stderr,"Unformatted channel capacity %G kB, ",
-			(double)WIDTH*format_height/8/1000);
+			(double)width*format_height/8/1000);
 	fprintf(stderr,"formatted raw channel capacity %G kB, ",
-			(double)TOTALBITS/8/1000);
+			(double)totalbits/8/1000);
 	fprintf(stderr,"net "
 #if FEC_ORDER == 1
 			"Golay"
@@ -1215,20 +1236,20 @@ static void print_chan_info(void)
 			"Hamming"
 #endif
 			" payload capacity %G kB, ",
-			(double)NETBITS/8/1000);
+			(double)netbits/8/1000);
 	fprintf(stderr,"%lu "
 #if FEC_ORDER == 1
 			"Golay"
 #else
 			"Hamming"
 #endif
-			" symbols, ", FEC_SYMS);
+			" symbols, ", fec_syms);
 	fprintf(stderr,"%lu bits unused (incomplete Hamming symbol), ",
-			TOTALBITS-USEDBITS);
+			totalbits-usedbits);
 	fprintf(stderr,"border taking %G%% of unformatted capacity, ",
-			100*(1-(double)(DATA_WIDTH)*(DATA_HEIGHT)/WIDTH/format_height));
+			100*(1-(double)(data_width)*(data_height)/width/format_height));
 	fprintf(stderr,"border with crosses taking %G%% of unformatted capacity, ",
-			100*(1-(double)(TOTALBITS)/WIDTH/format_height));
+			100*(1-(double)(totalbits)/width/format_height));
 	fprintf(stderr,"border with crosses and "
 #if FEC_ORDER == 1
 			"Golay"
@@ -1237,7 +1258,7 @@ static void print_chan_info(void)
 #endif
 			" taking %G%% of "
 			"unformatted capacity.\n",
-			100*(1-(double)(NETBITS)/WIDTH/format_height));
+			100*(1-(double)(netbits)/width/format_height));
 }
 
 static void print_marks(void)
@@ -1249,8 +1270,8 @@ static void print_marks(void)
 	mark(corners[2][0], corners[2][1]);
 	mark(corners[3][0], corners[3][1]);
 
-	for (cy=0;cy<YCROSSES;cy++)
-		for (cx=0;cx<XCROSSES;cx++){
+	for (cy=0;cy<ycrosses;cy++)
+		for (cx=0;cx<xcrosses;cx++){
 			mark(crosses[cx][cy][0],crosses[cx][cy][1]);
 			mark(
 				 PSHIFTX(crosses[cx][cy][0], chalf, 0)
@@ -1384,7 +1405,8 @@ static void process_minmax(void)
  * loaded from the commandline. */
 static void init_dimensions(void)
 {
-	format_height=2*BORDER+DATA_HEIGHT+text_height;
+	// xcrosses and ycrosses are initiated in parse_format
+	format_height=2*border+data_height+text_height;
 }
 
 static void que_write(unsigned x, unsigned y)
@@ -1662,14 +1684,14 @@ static void parse_format(char *format)
 
 	sscanf(format,"%u-%u-%u-%u-%u-%u-%u-%u",
 			&dummy,
-			&dummy,
-			&dummy,
+			&xcrosses,
+			&ycrosses,
 			&dummy,
 			&dummy,
 			&dummy,
 			&dummy,
 			&text_height);
-	fprintf(stderr,"Format: text height=%u\n", text_height);
+	fprintf(stderr,"Format: xcrosses=%d ycrosses=%d text_height=%u\n", xcrosses, ycrosses, text_height);
 }
 
 /* argv:
@@ -1707,11 +1729,18 @@ int main(int argc, char **argv)
 	}
 
 	parse_format(argv[1]);
+	init_values(xcrosses,ycrosses);
 	/* This must after all dimension-related parameters are decoded. */
+	crosses = allocate_3d_matrix(sizeof(double), xcrosses, ycrosses, 2);
+	cutlevels = malloc(xcrosses * ycrosses);
 	init_dimensions();
+
 
 	print_chan_info();
 	process_files(argv[2]);
+
+	free(crosses);
+	free(cutlevels);
 
 	return 0;
 }

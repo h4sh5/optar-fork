@@ -1,4 +1,6 @@
 /*  GIMP header image file format (INDEXED): /var/www/htdocs/ronja/trunk/grx/optar/font.h  */
+#ifndef FONT_H
+#define FONT_H
 
 static unsigned int width = 1500;
 static unsigned int height = 24;
@@ -2527,3 +2529,5 @@ static char header_data[] = {
 	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 	0,0,0,0,0,0,0,0,0,0,0,0
 	};
+
+	#endif

@@ -4,13 +4,69 @@
 
 #include "optar.h"
 
+
+unsigned data_width;
+unsigned data_height;
+unsigned width;
+unsigned text_width;
+
+/* Properties of the narrow horizontal strip, with crosses */
+unsigned narrowheight;
+unsigned gapwidth;
+unsigned narrowwidth; /* Useful width */
+unsigned narrowpixels; /* Useful pixels */
+
+unsigned wideheight;
+unsigned widewidth;
+unsigned widepixels;
+
+unsigned repheight;
+unsigned reppixels;
+
+long totalbits;
+
+unsigned fec_syms;
+unsigned netbits;
+unsigned usedbits;
+
+extern unsigned border = 2;
+extern unsigned chalf = 3;
+extern unsigned cpitch = 24;
+extern unsigned xcrosses = 32;
+extern unsigned ycrosses = 46;
+extern unsigned text_width = 13;
+
+/* initialize rest of the values based on xcrosses and ycrosses */
+void init_values(unsigned xcrosses_input, unsigned ycrosses_input) {
+	xcrosses = xcrosses_input;
+	ycrosses = ycrosses_input;
+	data_width = cpitch*(xcrosses-1)+2* chalf;
+	data_height =  cpitch*(ycrosses-1)+2* chalf;
+	width = 2*border+data_width;
+	narrowheight = 2*chalf;
+	gapwidth = cpitch-2*chalf;
+	narrowwidth = gapwidth*(xcrosses-1);
+	narrowpixels = narrowheight*narrowwidth;
+	wideheight = gapwidth;
+	widewidth = width-2*border;
+	widepixels = wideheight*widewidth;
+	repheight = narrowheight+wideheight;
+	reppixels = widepixels+narrowpixels;
+	totalbits = (long)reppixels*(ycrosses-1)+narrowpixels;
+	fec_syms = totalbits/FEC_LARGEBITS;
+	netbits = fec_syms*FEC_SMALLBITS;
+	usedbits = fec_syms*FEC_LARGEBITS;
+
+}
+
+
 /* Coordinates don't count with the border - 0,0 is upper left corner of the
  * first cross! */
 int is_cross(unsigned x, unsigned y)
 {
-	x%=CPITCH;
-	y%=CPITCH;
-	return (x<2*CHALF&&y<2*CHALF);
+	x%=cpitch;
+	y%=cpitch;
+	return (x<2*chalf&&y<2*chalf);
 }
 
 /* Returns the coords relative to the upperloeftmost cross upper left corner
@@ -20,7 +76,7 @@ void seq2xy(int *x, int *y, unsigned seq)
 	unsigned rep; /* Repetition - number of narrow strip - wide strip pair,
 			 starting with 0 */
 
-	if (seq>=TOTALBITS){
+	if (seq>=totalbits){
 		/* Out of range */
 		*x=-1;
 		*y=-1;
@@ -28,33 +84,33 @@ void seq2xy(int *x, int *y, unsigned seq)
 	}
 	/* We are sure we are in range. Document structure:
 	 * - narrow strip (between top row of crosses), height is
-	 *   2*CHALF
-	 * - wide strip, height is CPITCH-2*CHALF
+	 *   2*chalf
+	 * - wide strip, height is cpitch-2*chalf
 	 * - the above repeats (YCROSSES-1)-times
 	 * - narrow strip 
 	 */
-	rep=seq/REPPIXELS;
-	seq=seq%REPPIXELS;
+	rep=seq/reppixels;
+	seq=seq%reppixels;
 
-	*y=REPHEIGHT*rep;
+	*y=repheight*rep;
 	/* Now seq is sequence in the repetition pair */
-	if (seq>=NARROWPIXELS){
+	if (seq>=narrowpixels){
 		/* Second, wide strip of the pair */
-		*y+=NARROWHEIGHT;
-		seq-=NARROWPIXELS;
+		*y+=narrowheight;
+		seq-=narrowpixels;
 		/* Now seq is sequence in the wide strip */
-		*y+=seq/WIDEWIDTH;
-		*x=seq%WIDEWIDTH;
+		*y+=seq/widewidth;
+		*x=seq%widewidth;
 	}else{
 		/* First, narrow strip of the pair */
 		unsigned gap; /* Horizontal gap number */
-		*x=2*CHALF;
-		*y+=seq/NARROWWIDTH;
-		seq%=NARROWWIDTH;
+		*x=2*chalf;
+		*y+=seq/narrowwidth;
+		seq%=narrowwidth;
 		/* seq is now sequence in the horiz. line */
-		gap=seq/GAPWIDTH;
-		*x+=gap*CPITCH;
-		seq%=GAPWIDTH;
+		gap=seq/gapwidth;
+		*x+=gap*cpitch;
+		seq%=gapwidth;
 		/* seq is now sequence in the gap */
 		*x+=seq;
 	}
