@@ -10,6 +10,29 @@ The goal of this repo is to provide more visibility of this project, while worki
 
 Optar stands for OPTical ARchiver. It's a codec for encoding data on paper or free software 2D barcode in other words. Optar fits 200kB on an A4 page, then you print it with a laser printer (at 600dpi+ printing, 1200dpi+ scanning for best results). If you want to read the recording, scan it with a scanner and feed into the decoder program. A practical level of reliability is ensured using forward error correction code (FEC). Automated processing of page batches facilitates storage of files larger than 200kB.
 
+## Usage
+
+### Encoding (writing)
+
+`./optar <path to file> <file label> [xcrosses] [ycrosses]`
+
+default value for xcrosses/ycrosses if unspecified is 32 46
+
+for example:
+
+`./optar path/to/file.txt file.label 46 69`
+
+Some example values for xcrosses and ycrosses (smaller = less data per page, more pages needed to encode data, but less room for error; bigger = more data per page, less pages needed, more room for error).
+
+Recommend using smaller x/y values so that crappier printers and scanners can still do the job.
+
+Example values:
+
+```
+65 93 - 200kB encoded per A4 page (6 pages needed for 1MB)
+48 70 - 100kB per A4 page (10 pages for 1MB)
+32 46 - 50kB per A4 page (23 pages for 1MB) - default
+```
 
 Old README:
 
