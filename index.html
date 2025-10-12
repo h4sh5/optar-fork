@@ -52,19 +52,16 @@ runBtn.addEventListener('click', async () => {
 
   const file = fileInput.files[0];
   if (!file) {
-    console.log("no file, returning..");
+    log("no file input..");
   }
   const FS = this.FS;
-  console.log('FS:', this.FS);
   const node = file.name.replace(/[^a-z0-9_.-]/gi, '_');
-  // const buf  = new Uint8Array(await file.arrayBuffer());
   const buf = await file.arrayBuffer();
-  console.log('buf:', buf);
 
   var reader = new FileReader();
   reader.onload = async function() {
     var fileString = new TextDecoder('utf-8').decode(this.result);
-    console.log('file content:', fileString);
+    // console.log('file content:', fileString);
 
     FS.writeFile('/' + node, fileString);
     log('wrote', node, 'to MEMFS');
