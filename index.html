@@ -79,6 +79,7 @@ runBtn.addEventListener('click', async () => {
       const pgmData   = FS.readFile('/' + pgmName);
       const pgmBlob   = new Blob([pgmData], {type:'image/x-portable-graymap'});
       console.log(`${pgmName}:`,pgmData);
+      downloadBlob(pgmBlob, pgmName);
     }
     log('Done.');
     runBtn.disabled = false;
