@@ -1,0 +1,8 @@
+#!/bin/sh
+while [ $# -gt 0 ]; do
+	target=`echo "$1" | sed -e 's/\.pgm$/.png/'`
+	echo Converting "$1" to "$target"
+	convert -quality 100 "$1" "$target"
+	shift
+done
+
