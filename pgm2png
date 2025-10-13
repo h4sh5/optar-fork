@@ -2,7 +2,8 @@
 while [ $# -gt 0 ]; do
 	target=`echo "$1" | sed -e 's/\.pgm$/.png/'`
 	echo Converting "$1" to "$target"
-	convert -quality 100 "$1" "$target"
+	# -quality 3 for png average compression
+	convert -border 5x5 -quality 3 "$1" "$target"
 	shift
 done
 
