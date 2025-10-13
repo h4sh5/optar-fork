@@ -29,7 +29,7 @@
 <input type="reset"/>
 </span>
 
-<div id="log"></div>
+<div id="log">Log (open console for more): <br></div>
 
 <script src="./wasm/unoptar.js"></script>
 
@@ -62,7 +62,7 @@ fileInput.addEventListener('change', () => {
 
 runBtn.addEventListener('click', async () => {
 	runBtn.disabled = true;
-	log('Starting... (please refresh the page before unoptaring another file or trying again)');
+	log('\nStarting... (please refresh the page before unoptaring another file or trying again)');
 
 	const files = fileInput.files;
 	if (!files) {
