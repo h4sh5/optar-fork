@@ -12,9 +12,11 @@
 <body>
 
 <h1>OPTAR (OPTical ARchiver)</h1>
+<p style="color:#bbb">*WebAssembly used, no server side processing. Files are not uploaded to any servers, preserving your privacy.</p>
 <p>Backup any file with printable paper copies. Originally made by <a href=https://ronja.twibright.com/optar/ target=_blank>Twibright Labs</a>.</p>
+<p>Use <a href=unoptar.html>unoptar</a> to decode scanned optar PNGs (only supports 32x46 x/ycrosses values at the moment which encodes ~50KB per A4 page)</p>
 <form>
-<input type="file" id="fileInput">
+<input type="file" id="optarFileInput">
 <button id="runBtn" disabled>Run optar</button>
 <nbsp>
 <span>xcrosses: <input type="number" id="xcrosses" value=32 placeholder="32" style="width: 3em">
@@ -24,6 +26,7 @@ ycrosses: <input type="number" id="ycrosses" value=46 placeholder="46" style="wi
 </span>
 
 <div id="log"></div>
+
 
 <!-- 1. Emscripten glue for optar -->
 <script src="./wasm/optar.js"></script>
@@ -46,7 +49,7 @@ const downloadBlob = (blob, name) => {
 };
 
 
-const fileInput = document.getElementById('fileInput');
+const fileInput = document.getElementById('optarFileInput');
 const runBtn    = document.getElementById('runBtn');
 const xInput = document.getElementById('xcrosses');
 const yInput = document.getElementById('ycrosses');

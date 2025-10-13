@@ -4699,7 +4699,7 @@ var wasmExports;
 // instance is received.
 createWasm();
 
-run();
+// run(); // don't run it immediately so that we can add arguments in index.html
 
 // end include: postamble.js
 

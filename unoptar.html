@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>unoptar</title>
+<style>
+  body{font-family:system-ui, sans-serif; margin:2rem}
+  button{margin-top:1rem}
+  #log{white-space:pre-wrap; font-size:.8rem; background:#f6f6f6; padding:.5rem; max-height:12rem; overflow:auto}
+</style>
+</head>
+<body>
+
+
+<h1>Unoptar</h1>
+<p style="color:#bbb">*WebAssembly used, no server side processing. Files are not uploaded to any servers, preserving your privacy.</p>
+<p>Restore optar encoded files from scanned PNGs (select all of them). Make sure file names are like prefix_0001.png, prefix_0002.png etc. (prefix can be arbitrary, for example, prefix of "data.txt" will have files data.txt_0001.png, data.txt_0002.png and final output file will be called data.txt).</p>
+
+<p><b>NOTE</b>: Do not change the format from default - that is currently unsupported due to the way x/y crosses were hardcoded in unoptar.c during compile time and have not been refactored.</p>
+<form>
+<input type="file" id="unoptarFilesInput" multiple>
+<button id="runBtn" disabled>Run unoptar</button>
+<nbsp>
+<span>format: <input id="format" value=0-32-46-24-3-1-2-24 placeholder="0-32-46-24-3-1-2-24" style="width: 15em"> <abbr title="Format is the number-dashes code at the bottom of the page which specifies parameters when optar was ran (e.g. 0-32-46-24-3-1-2-24).">
+ <span>&#xFE56;<span/></abbr>
+
+<span>prefix override: <input id=prefixoverride placeholder="N/A"></span><abbr title="Usually automatically detected and no need to fill.">
+ <span>&#xFE56;<span/></abbr>
+<input type="reset"/>
+</span>
+
+<div id="log"></div>
+
+<script src="./wasm/unoptar.js"></script>
+
+<script>
+const log = (...args) => {
+  const box = document.getElementById('log');
+  box.textContent += args.join(' ') + '\n';
+  box.scrollTop = box.scrollHeight;
+};
+const downloadBlob = (blob, name) => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+
+const fileInput = document.getElementById('unoptarFilesInput');
+const runBtn    = document.getElementById('runBtn');
+const formatInput = document.getElementById('format');
+const prefixOverrideInput = document.getElementById('prefixoverride');
+
+runBtn.disabled = !fileInput.files.length;
+
+fileInput.addEventListener('change', () => {
+  runBtn.disabled = !fileInput.files.length;
+});
+
+
+runBtn.addEventListener('click', async () => {
+	runBtn.disabled = true;
+	log('Starting... (please refresh the page before unoptaring another file or trying again)');
+
+	const files = fileInput.files;
+	if (!files) {
+	log("no files selected..");
+	}
+
+	// check file names and extract prefix
+	for (var i = files.length - 1; i >= 0; i--) {
+		if (!files[i].name.includes("_0")) {
+			log(`file format must be prefix followed by _0001.png, _0002.png.. (file ${!files[i].name} missing _0 format`);
+			return;
+		}
+		if (!files[i].name.endsWith(".png")) {
+			log(`file format must be prefix followed by _0001.png, _0002.png.. (file ${!files[i].name} does not end with .png`);
+			return;
+		}
+	}
+
+
+	const FS = this.FS;
+	var prefix = files[0].name.split("_0")[0];
+	if (prefixOverrideInput.value != "") {
+		prefix = prefixOverrideInput.value;
+		log(`using prefix override: ${prefix}`);
+	} else {
+		log(`got prefix ${prefix}, please rename files or override prefix if incorrect`);
+	}
+  
+  	for (var i = files.length - 1; i >= 0; i--) {
+  		// var reader = new FileReader();
+  		console.log('reading file:', files[i]);
+  		var fileContent = await files[i].arrayBuffer();
+  		// convert to uint8 array so that it's supported by FS.writeFile
+  		const fileContentArray = new Uint8Array(fileContent);
+  		await FS.writeFile('/' + files[i].name, fileContentArray);
+  		log(`finished uploading ${files[i].name} to browser MEMFS`);
+  	}
+
+  	log("running unoptar with arguments:",[formatInput.value, prefix])
+    run([formatInput.value, prefix]);
+    log('unoptar finished');
+
+    const outfiles = FS.readdir('/').filter(n => n == prefix);
+    if (!outfiles.length) { log(`No output files found with name ${prefix}`); return; }
+
+
+  	const outData   = FS.readFile('/' + prefix);
+  	const outBlob   = new Blob([outData], {type:'application/octet-stream'});
+      downloadBlob(outBlob, prefix);
+    
+    log('Done.');
+    runBtn.disabled = false;
+
+    
+
+  
+});
+
+</script>
