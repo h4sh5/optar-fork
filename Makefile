@@ -33,10 +33,6 @@ golay_codes.o: golay_codes.c
 golay.o: golay.c parity.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
-# dynamically generated because of current header change? unsure why
-golay_codes.c: golay
-	./$< > $@
-
 unoptar.o: unoptar.c optar.h parity.h common.c
 	$(CC) -c -I/usr/local/include/libpng $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
