@@ -74,10 +74,9 @@ runBtn.addEventListener('click', async () => {
 
   var reader = new FileReader();
   reader.onload = async function() {
-    var fileString = new TextDecoder('utf-8').decode(this.result);
-    // console.log('file content:', fileString);
+    const fileContentArray = new Uint8Array(this.result);
 
-    FS.writeFile('/' + node, fileString);
+    FS.writeFile('/' + node, fileContentArray);
     log('wrote', node, 'to MEMFS');
 
     var xval = "32";
