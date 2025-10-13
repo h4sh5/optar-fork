@@ -340,7 +340,7 @@ int main(int argc, char **argv)
 	init_values(xcrosses, ycrosses);
 	height= (2*border+data_height+text_height);
 	fprintf(stderr, "done initializing values..\n");
-	fprintf(stderr, "width:%d height:%d\n",width,height);
+	fprintf(stderr, "width:%d height:%d totalbits:%llu netbits:%d\n",width,height,totalbits,netbits);
 	ary = malloc(width*height);
 	ary_size = width*height;
 	open_input_file(argv[1]);
