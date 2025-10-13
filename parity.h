@@ -2,9 +2,11 @@
 #ifndef PARITY_H
 #define PARITY_H
 
-extern unsigned long parity(unsigned long in);
+#include <stdint.h>
+
+extern uint64_t parity(uint64_t in);
 
 /* Counts number of '1' bits */
-extern unsigned ones(unsigned long in);
+extern uint32_t ones(uint64_t in);
 
 #endif

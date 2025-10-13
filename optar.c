@@ -318,6 +318,10 @@ void open_input_file(char *fname)
 int main(int argc, char **argv)
 {
 
+	fprintf(stderr, "sizeof unsigned: %lu\n", sizeof(unsigned));
+	fprintf(stderr, "sizeof long: %lu\n", sizeof(long));
+	fprintf(stderr, "sizeof xcrosses: %lu\n", sizeof(xcrosses));
+	fprintf(stderr, "sizeof totalbits: %lu\n", sizeof(totalbits));
 	if (argc<2){
 		fprintf(stderr,
 "\n"
@@ -329,7 +333,7 @@ int main(int argc, char **argv)
 );
 		exit(1);
 	}
-
+	
 	if (argc >= 4) {
 		xcrosses = atoi(argv[3]);
 		ycrosses = atoi(argv[4]);

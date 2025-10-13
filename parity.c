@@ -1,6 +1,6 @@
 /* (c) GPL 2007 Karel 'Clock' Kulhavy, Twibright Labs */
-
-unsigned long parity(unsigned long in)
+#include <stdint.h>
+uint64_t parity(uint64_t in)
 {
 	in^=in>>16;
 	in^=in>>8;
@@ -11,7 +11,7 @@ unsigned long parity(unsigned long in)
 }
 
 /* Counts number of '1' bits */
-unsigned ones(unsigned long in)
+uint32_t ones(uint64_t in)
 {
 	in-=((in>>1)&0x55555555UL); /* 2-bit groups result with max. 10 */
 	in=(in&0x33333333UL)+((in&0xccccccccUL)>>2); /* 4-bit groups with 
