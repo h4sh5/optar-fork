@@ -329,7 +329,7 @@ int main(int argc, char **argv)
 );
 		exit(1);
 	}
-	
+
 	if (argc >= 4) {
 		xcrosses = atoi(argv[3]);
 		ycrosses = atoi(argv[4]);

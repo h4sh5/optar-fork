@@ -3,52 +3,50 @@
 #ifndef OPTAR_H
 #define OPTAR_H
 
-#include <stdint.h>
-
 #define MIN(x,y) ((x)<(y)?(x):(y))
 #define MAX(x,y) ((x)>(y)?(x):(y))
 
-extern uint32_t border; /* In pixels. Thickness of the border */
-extern uint32_t chalf; /* Size of the cross half. Size of the cross is CHALF*2 x CHALF*2.
+extern unsigned border; /* In pixels. Thickness of the border */
+extern unsigned chalf; /* Size of the cross half. Size of the cross is CHALF*2 x CHALF*2.
 		   */
-extern uint32_t cpitch; /* Distance between cross centers */
+extern unsigned cpitch; /* Distance between cross centers */
 
 // XXX X-Y crosses reduced due to too much data loss (originally 65x93 / 200KB per page, at half size 32x46 which encodes 1/4 of data / 50KB a page)
 /* XCROSSES A4 65, US Letter 67. (originally)*/
 /* Number of crosses horizontally */
-extern uint32_t xcrosses;
+extern unsigned xcrosses;
 
 /* YCROSSES A4 93, US Letter 87. (originally)*/
 /* Number of crosses vertically */
-extern uint32_t ycrosses;
+extern unsigned ycrosses;
 
-extern uint32_t data_width; /* The rectangle occupied bythe data and crosses */
-extern uint32_t data_height;
-extern uint32_t width; /* In pixels, including the border */
+extern unsigned data_width; /* The rectangle occupied bythe data and crosses */
+extern unsigned data_height;
+extern unsigned width; /* In pixels, including the border */
 /* In pixels, including the border and the label */
 
-extern uint32_t text_width; /* Width of a single letter */
+extern unsigned text_width; /* Width of a single letter */
 
 /* Definitions for seq2xy */
 
 /* Properties of the narrow horizontal strip, with crosses */
-extern uint32_t narrowheight;
-extern uint32_t gapwidth;
-extern uint32_t narrowwidth; /* Useful width */
-extern uint32_t narrowpixels; /* Useful pixels */
+extern unsigned narrowheight;
+extern unsigned gapwidth;
+extern unsigned narrowwidth; /* Useful width */
+extern unsigned narrowpixels; /* Useful pixels */
 
 /* Properties of the wide horizontal strip, without crosses */
-extern uint32_t wideheight;
-extern uint32_t widewidth;
-extern uint32_t widepixels;
+extern unsigned wideheight;
+extern unsigned widewidth;
+extern unsigned widepixels;
 
 /* Amount of raw payload pixels in one narrow-wide strip pair */
-extern uint32_t repheight;
-extern uint32_t reppixels;
+extern unsigned repheight;
+extern unsigned reppixels;
 
 
 /* Total bits before hamming including the unused */
-extern uint64_t totalbits;
+extern long totalbits;
 
 /* Hamming codes with parity */
 #define FEC_ORDER 1 /* Can be 2 to 5 inclusive. 
@@ -68,21 +66,21 @@ extern uint64_t totalbits;
 #endif
 
 /* Hamming net channel capacity */
-extern uint32_t fec_syms;
-extern uint32_t netbits; /* Net payload bits */
-extern uint32_t usedbits; /* Used raw bits to store
+extern unsigned fec_syms;
+extern unsigned netbits; /* Net payload bits */
+extern unsigned usedbits; /* Used raw bits to store
 						     Hamming symbols */
 
 /* Functions from common.c */
-extern uint64_t parity(uint64_t in);
-extern int is_cross(uint32_t x, uint32_t y);
-extern void seq2xy(int *x, int *y, uint32_t seq);
+extern unsigned long parity(unsigned long in);
+extern int is_cross(unsigned x, unsigned y);
+extern void seq2xy(int *x, int *y, unsigned seq);
 
 /* Counts number of '1' bits */
-uint32_t ones(uint64_t in);
+unsigned ones(unsigned long in);
 
 /* Golay codes */
-uint64_t golay(uint64_t in);
-extern uint64_t golay_codes[4096];
-extern void init_values(uint32_t xcrosses_input, uint32_t ycrosses_input);
+unsigned long golay(unsigned long in);
+extern unsigned long golay_codes[4096];
+extern void init_values(unsigned xcrosses_input, unsigned ycrosses_input);
 #endif

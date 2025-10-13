@@ -1,42 +1,42 @@
 /* (c) GPL 2007 Karel 'Clock' Kulhavy, Twibright Labs */
 
 #include <stdio.h> /* fprintf */
-#include <stdint.h>
+
 #include "optar.h"
 
 
-uint32_t data_width;
-uint32_t data_height;
-uint32_t width;
+unsigned data_width;
+unsigned data_height;
+unsigned width;
 
 /* Properties of the narrow horizontal strip, with crosses */
-uint32_t narrowheight;
-uint32_t gapwidth;
-uint32_t narrowwidth; /* Useful width */
-uint32_t narrowpixels; /* Useful pixels */
+unsigned narrowheight;
+unsigned gapwidth;
+unsigned narrowwidth; /* Useful width */
+unsigned narrowpixels; /* Useful pixels */
 
-uint32_t wideheight;
-uint32_t widewidth;
-uint32_t widepixels;
+unsigned wideheight;
+unsigned widewidth;
+unsigned widepixels;
 
-uint32_t repheight;
-uint32_t reppixels;
+unsigned repheight;
+unsigned reppixels;
 
-uint64_t totalbits;
+long totalbits;
 
-uint32_t fec_syms;
-uint32_t netbits;
-uint32_t usedbits;
+unsigned fec_syms;
+unsigned netbits;
+unsigned usedbits;
 
-uint32_t border = 2;
-uint32_t chalf = 3;
-uint32_t cpitch = 24;
-uint32_t xcrosses = 32;
-uint32_t ycrosses = 46;
-uint32_t text_width = 13; // has to be 13!! Do not change!
+unsigned border = 2;
+unsigned chalf = 3;
+unsigned cpitch = 24;
+unsigned xcrosses = 32;
+unsigned ycrosses = 46;
+unsigned text_width = 13; // has to be 13!! Do not change!
 
 /* initialize rest of the values based on xcrosses and ycrosses */
-void init_values(uint32_t xcrosses_input, uint32_t ycrosses_input) {
+void init_values(unsigned xcrosses_input, unsigned ycrosses_input) {
 	xcrosses = xcrosses_input;
 	ycrosses = ycrosses_input;
 	data_width = cpitch*(xcrosses-1)+2* chalf;
@@ -51,7 +51,7 @@ void init_values(uint32_t xcrosses_input, uint32_t ycrosses_input) {
 	widepixels = wideheight*widewidth;
 	repheight = narrowheight+wideheight;
 	reppixels = widepixels+narrowpixels;
-	totalbits = (uint64_t)reppixels*(ycrosses-1)+narrowpixels;
+	totalbits = (long)reppixels*(ycrosses-1)+narrowpixels;
 	fec_syms = totalbits/FEC_LARGEBITS;
 	netbits = fec_syms*FEC_SMALLBITS;
 	usedbits = fec_syms*FEC_LARGEBITS;
@@ -61,7 +61,7 @@ void init_values(uint32_t xcrosses_input, uint32_t ycrosses_input) {
 
 /* Coordinates don't count with the border - 0,0 is upper left corner of the
  * first cross! */
-int is_cross(uint32_t x, uint32_t y)
+int is_cross(unsigned x, unsigned y)
 {
 	x%=cpitch;
 	y%=cpitch;
@@ -70,9 +70,9 @@ int is_cross(uint32_t x, uint32_t y)
 
 /* Returns the coords relative to the upperloeftmost cross upper left corner
  * pixel! If you have borders, you have to add them! */
-void seq2xy(int *x, int *y, uint32_t seq)
+void seq2xy(int *x, int *y, unsigned seq)
 {
-	uint32_t rep; /* Repetition - number of narrow strip - wide strip pair,
+	unsigned rep; /* Repetition - number of narrow strip - wide strip pair,
 			 starting with 0 */
 
 	if (seq>=totalbits){
@@ -102,7 +102,7 @@ void seq2xy(int *x, int *y, uint32_t seq)
 		*x=seq%widewidth;
 	}else{
 		/* First, narrow strip of the pair */
-		uint32_t gap; /* Horizontal gap number */
+		unsigned gap; /* Horizontal gap number */
 		*x=2*chalf;
 		*y+=seq/narrowwidth;
 		seq%=narrowwidth;
@@ -116,7 +116,7 @@ void seq2xy(int *x, int *y, uint32_t seq)
 }
 
 /* Golay codes */
-uint64_t golay(uint64_t in)
+unsigned long golay(unsigned long in)
 {
 	return golay_codes[in&4095];
 }
