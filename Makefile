@@ -1,3 +1,9 @@
+# to compile to webassembly: (make sure emscripten dev environment is installed correctly)
+# export CC=emcc
+# make unoptar
+# mv unoptar wasm/unoptar.js
+# mv unoptar.wasm wasm/unoptar.wasm
+
 LDFLAGS=-L/usr/local/lib `libpng-config --L_opts`
 CFLAGS=-O3 -Wall -Wuninitialized -fomit-frame-pointer -funroll-loops \
 	-fstrength-reduce -DNODEBUG `libpng-config --I_opts`
@@ -16,7 +22,7 @@ uninstall:
 	rm /usr/local/bin/pgm2ps
 
 clean:
-	rm -f optar unoptar golay golay_codes.c *.o
+	rm -f optar unoptar golay c *.o
 
 common.o: common.c optar.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
@@ -39,8 +45,6 @@ unoptar.o: unoptar.c optar.h parity.h
 optar: optar.o common.o golay_codes.o parity.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
-golay_codes.c: golay
-	./$< > $@
 
 golay: golay.o parity.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)

@@ -11,6 +11,9 @@
 #include "optar.h"
 #include "parity.h"
 
+/* XXX output file just for unoptar */
+FILE* output_file;
+
 /* Crosses will be resynced with precision of FINESTEP pixels */
 #define FINE_CROSS_RESYNC
 #define FINESTEP 0.25
@@ -667,7 +670,7 @@ static void cross_stats(unsigned cx, unsigned cy)
 				+black*(1-white_cut);
 	}
 	cutlevels[cx][cy]=cutlevel_result;
-	fprintf(stderr,"%02x ",(int)floor(cutlevel_result+0.5));
+	//fprintf(stderr,"%02x ",(int)floor(cutlevel_result+0.5));
 }
 
 /* Center of search area is in a system where the integers are in the
@@ -801,7 +804,6 @@ static void sync_crosses(void)
 			"individual cutlevels:\n", YCROSSES);
 
 	for (cy=0;cy<YCROSSES;cy++){
-		fprintf(stderr,"%3u: ",cy);
 		for (cx=0;cx<XCROSSES;cx++){
 			if (cx>0){
 				/* Copy from left */
@@ -815,7 +817,6 @@ static void sync_crosses(void)
 			resync_cross(crosses[cx][cy]);
 			cross_stats(cx, cy);
 		}
-		putc('\n',stderr);
 	}
 }
 
@@ -877,7 +878,8 @@ static void read_payload_bit(unsigned char bit)
 	accu<<=1;
 	accu|=bit&1;
 	if (accu&(1<<8)){
-		putchar(accu&0xff);
+		//putchar(accu&0xff);
+		fputc(accu&0xff, output_file);
 		accu=1;
 	}
 }
@@ -947,14 +949,6 @@ static void print_badbit(unsigned symbol, unsigned bit, unsigned dir)
 	double xd, yd; /* Integers in centers */
 	unsigned char delim;
 	
-	if (!(bad_total)){
-		fprintf(stderr,"The following coordinates have damaged bits. "
-				"\",\" is black dirt, \"'\" white dirt, \":\""
-				"bit which is a part of an irreparable symbol. "
-				"Exclamation marks (!) indicate irreparable "
-				"damage: ");
-	}
-
 	if (dir==1){
 		bad_01++;
 		bad_total++;
@@ -976,7 +970,7 @@ static void print_badbit(unsigned symbol, unsigned bit, unsigned dir)
 		case 1: delim=','; break;
 		default: delim=':'; break;
 	}
-	fprintf(stderr,"%ld%c%ld ",(long)xd, delim, (long)yd);
+	//fprintf(stderr,"%ld%c%ld ",(long)xd, delim, (long)yd);
 }
 
 static void print_badbit_finish(void)
@@ -1056,10 +1050,8 @@ static unsigned long ungolay(unsigned long in, unsigned long symno)
 	{
 		int badbit;
 
-		fputc('\n',stderr);
 		for (badbit=0;badbit<24;badbit++)
 			print_badbit(symno, badbit, 2);
-		fprintf(stderr,"!\n");
 		irreparable+=4;
 		bad_total+=4;
 		golay_stats[4]++;
@@ -1711,7 +1703,9 @@ int main(int argc, char **argv)
 	init_dimensions();
 
 	print_chan_info();
+	output_file = fopen(argv[2],"wb");
 	process_files(argv[2]);
-
+	fclose(output_file);
+	printf("Written output file to %s\n", argv[2]);
 	return 0;
 }
