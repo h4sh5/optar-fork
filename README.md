@@ -2,9 +2,11 @@
 
 <img src=docs/optar_strip.png>
 
-**This repo is a maintenance and modernization fork of Optar - OPTical ARchiver**. It was written around 2007 by Twibright Labs. Thanks to the magical ability of projects written in C to pretty much work forever, it's has survived bitrot (and even works in 2025 on a apple silicone macbook).
+**This repo is a fork of Optar - OPTical ARchiver**. It was written around 2007 by Twibright Labs. Thanks to the magical ability of projects written in C to pretty much work forever, it's has survived bitrot (and even works in 2025 on an apple silicone macbook).
 
-The goal of this repo is to provide more visibility of this project, while working towards a browser-only optar web application that can optar/unoptar files on any browser without a server or the need to compile any of the code yourself.
+The goal of this repo is to provide more visibility of this project, while working towards a browser-only optar web application using WebAssembly that can optar/unoptar files on any browser without a server or the need to compile any of the code yourself.
+
+**WARNING**: Code in this repository is unstable while refactoring work is being done on optar and unoptar; compilations to wasm might be done with different branches and no branch is guaranteed to work prefectly (for example, unoptar.c currently does not work if compiled from main). For fully working C code go back to the initial commit or refer to the original source code from the Twibright website.
 
 ## What is Optar?
 
