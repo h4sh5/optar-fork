@@ -26,7 +26,7 @@ for example:
 
 Some example values for xcrosses and ycrosses (smaller = less data per page, more pages needed to encode data, but less room for error; bigger = more data per page, less pages needed, more room for error).
 
-Recommend using smaller x/y values so that crappier printers and scanners can still do the job.
+Recommend using smaller xycrosses values so that crappier printers and scanners can still do the job.
 
 Example values:
 
@@ -35,6 +35,12 @@ Example values:
 48 70 - 100kB per A4 page (10 pages for 1MB)
 32 46 - 50kB per A4 page (23 pages for 1MB) - default
 ```
+
+Testing with 600dpi printing and scanning shows about 9% data loss rate for 32 46 xy setting (and scanning with 1200dpi will increase accuracy at the expense of speed).
+
+That means it's recommended to use optar only to store data that can be partially corrupted without losing meaning (such as txt files, or streaming video formats like ogg), or for files that need to be accurate over time use archives with error correction (such as RAR: `rar a -rr10 test.rar file.bin` or PAR2 `par2 c file.bin.par2 file.bin`, where the `*.par2` files must be stored separately).
+
+Note that file size is not preserved as part of optar; most likely you will end up with a file larger than the original, so use file formats that have their own metadata to preserve the size.
 
 Old README:
 
