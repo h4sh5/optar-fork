@@ -30,11 +30,21 @@ ycrosses: <input type="number" id="ycrosses" value=46 placeholder="46" style="wi
 
 <!-- 1. Emscripten glue for optar -->
 <script src="./wasm/optar.js"></script>
+<!-- <script src="./imagemagick/package/dist/bundles/magickApi.js" ></script> -->
 
-<!-- 2. MagickWasm (browser ImageMagick) -->
-<!-- <script type='module' src="https://unpkg.com/wasm-imagemagick@1.2.8/dist/bundles/magickApi.js"></script> -->
+<script type='module'>
+import * as Magick from "./imagemagick/package/dist/bundles/magickApi.js";
+
+function MagickCall(...args) {
+  return Magick.call(...args);
+}
+
+window.MagickCall = MagickCall;
+
+</script>
 
 <script>
+
 const log = (...args) => {
   const box = document.getElementById('log');
   box.textContent += args.join(' ') + '\n';
@@ -69,15 +79,15 @@ runBtn.addEventListener('click', async () => {
     log("no file input..");
   }
   const FS = this.FS;
-  const node = file.name.replace(/[^a-z0-9_.-]/gi, '_');
+  const fileNameSanitized = file.name.replace(/[^a-z0-9_.-]/gi, '_');
   const buf = await file.arrayBuffer();
 
   var reader = new FileReader();
   reader.onload = async function() {
     const fileContentArray = new Uint8Array(this.result);
 
-    FS.writeFile('/' + node, fileContentArray);
-    log('wrote', node, 'to MEMFS');
+    FS.writeFile('/' + fileNameSanitized, fileContentArray);
+    log('wrote', fileNameSanitized, 'to MEMFS');
 
     var xval = "32";
     var yval = "46";
@@ -85,19 +95,27 @@ runBtn.addEventListener('click', async () => {
       xval = xInput.value;
       yval = yInput.value;
     }
-    run(['/'+node, node, xval, yval]);
+    run(['/'+fileNameSanitized, fileNameSanitized, xval, yval]);
     log('optar finished');
 
-    const files = FS.readdir('/').filter(n => n.endsWith('.pgm'));
-    if (!files.length) { log('No .pgm files produced'); return; }
+    const outFiles = FS.readdir('/').filter(n => n.endsWith('.pgm'));
+    if (!outFiles.length) { log('No .pgm files produced'); return; }
 
     /* ---------- 3. ImageMagick conversions ---------- */
-    for (const pgmName of files) {
-      const pgmData   = FS.readFile('/' + pgmName);
-      const pgmBlob   = new Blob([pgmData], {type:'image/x-portable-graymap'});
+    var pgmFilesContents = []; // array of {name: filename, content: filedata} to provide to wasm-imagemagick
+
+    for (const pgmName of outFiles) {
+      const pgmData   = FS.readFile('/' + pgmName); // FS.readFile returns an Uint8Array by default
+      // const pgmBlob   = new Blob([pgmData], {type:'image/x-portable-graymap'});
       console.log(`${pgmName}:`,pgmData);
-      downloadBlob(pgmBlob, pgmName);
+      pgmFilesContents.push({'name':pgmName, 'content':pgmData});
+      // downloadBlob(pgmBlob, pgmName);
     }
+    console.log(`running magick Call with pgmFilesContents: ${pgmFilesContents} and outFiles: ${outFiles}`);
+    let magickResult = await window.MagickCall(pgmFilesContents, ["convert", ...outFiles, `${fileNameSanitized}.pdf`]);
+    console.log('imagemagick result:', magickResult);
+    const pdfBlob = magickResult.outputFiles[0]['blob'];
+    downloadBlob(pdfBlob, `${fileNameSanitized}.pdf`);
     log('Done.');
     runBtn.disabled = false;
 
