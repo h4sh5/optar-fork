@@ -1,6 +1,6 @@
 LDFLAGS=-L/usr/local/lib `libpng-config --L_opts`
 #add -sUSE_LIBPNG=1 for emcc
-CFLAGS=-O3 -Wall -Wuninitialized -fomit-frame-pointer -funroll-loops -fstrength-reduce -DNODEBUG `libpng-config --I_opts`
+CFLAGS=-O3 -Wall -Wuninitialized -fomit-frame-pointer -funroll-loops -DNODEBUG `libpng-config --I_opts`
 LDLIBS=-lpng -lz -lm
 
 all: optar unoptar
