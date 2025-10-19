@@ -1,15 +1,10 @@
 # to compile to webassembly: (make sure emscripten dev environment is installed correctly)
-# export CC=emcc
-# make unoptar
-# mv unoptar wasm/unoptar.js
-# mv unoptar.wasm wasm/unoptar.wasm
 
 CC=emcc
-LDFLAGS=-L/usr/local/lib `libpng-config --L_opts`
-CFLAGS=-O3 -Wall -Wuninitialized -fomit-frame-pointer -funroll-loops -fstrength-reduce -DNODEBUG `libpng-config --I_opts` -sALLOW_MEMORY_GROWTH=1
-LDLIBS=-lpng -lz -lm
+CFLAGS=-O3 -Wall -sALLOW_MEMORY_GROWTH=1 -sUSE_LIBPNG -sINVOKE_RUN=0 
+LDLIBS=
 
-all: optar unoptar
+all: optar.js unoptar.js
 
 install:
 	install optar /usr/local/bin/
@@ -22,7 +17,7 @@ uninstall:
 	rm /usr/local/bin/pgm2ps
 
 clean:
-	rm -f optar unoptar golay c *.o
+	rm -f wasm/*.wasm
 
 common.o: common.c optar.h
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
@@ -42,12 +37,12 @@ golay.o: golay.c parity.h
 unoptar.o: unoptar.c optar.h parity.h
 	$(CC) -c -I/usr/local/include/libpng $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
-optar: optar.o common.o golay_codes.o parity.o
-	$(CC) $(LDFLAGS) -o $@ $^
+optar.js: optar.o common.o golay_codes.o parity.o
+	$(CC) $(LDFLAGS) $(CFLAGS) -o wasm/$@ $^
 
 
 golay: golay.o parity.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-unoptar: unoptar.o common.o golay_codes.o parity.o
-	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CFLAGS)
+unoptar.js: unoptar.o common.o golay_codes.o parity.o
+	$(CC) $(LDFLAGS) -o wasm/$@ $^ $(LDLIBS) $(CFLAGS)

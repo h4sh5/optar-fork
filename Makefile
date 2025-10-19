@@ -38,7 +38,7 @@ unoptar.o: unoptar.c optar.h parity.h common.c
 	$(CC) -c -I/usr/local/include/libpng $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 optar: optar.o common.o golay_codes.o parity.o
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^ $(CFLAGS)
 
 golay: golay.o parity.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)

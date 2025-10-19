@@ -6,11 +6,10 @@
 
 The goal of this repo is to provide more visibility of this project, while working towards a browser-only optar web application using WebAssembly that can optar/unoptar files on any browser without a server or the need to compile any of the code yourself.
 
-**WARNING**: Code in this repository is unstable while refactoring work is being done on optar and unoptar; compilations to wasm might be done with different branches and no branch is guaranteed to work prefectly (for example, unoptar.c currently does not work if compiled from main). For fully working C code go back to the initial commit or refer to the original source code from the Twibright website.
 
 ## What is Optar?
 
-Optar stands for OPTical ARchiver. It's a codec for encoding data on paper or free software 2D barcode in other words. Optar fits 200kB on an A4 page, then you print it with a laser printer (at 600dpi+ printing, 1200dpi+ scanning for best results). If you want to read the recording, scan it with a scanner and feed into the decoder program. A practical level of reliability is ensured using forward error correction code (FEC). Automated processing of page batches facilitates storage of files larger than 200kB.
+Optar stands for OPTical ARchiver. It's a codec for encoding data on paper or free software 2D barcode in other words. Optar fits up to 200kB on an A4 page, then you print it with a laser printer (at 600dpi+ printing, 1200dpi+ scanning for best results; the scanning resolution must always be higher than the printing resolution). If you want to read the file, scan it with a scanner and feed into the decoder program. A practical level of reliability is ensured using forward error correction code (FEC). Automated processing of page batches facilitates storage of files larger than 200kB.
 
 ## Usage
 
@@ -41,6 +40,13 @@ Testing with 600dpi printing and scanning shows about 9% data loss rate for 32 4
 That means it's recommended to use optar only to store data that can be partially corrupted without losing meaning (such as txt files, or streaming video formats like ogg), or for files that need to be accurate over time use archives with error correction (such as RAR: `rar a -rr10 test.rar file.bin` or PAR2 `par2 c file.bin.par2 file.bin`, where the `*.par2` files must be stored separately).
 
 Note that file size is not preserved as part of optar; most likely you will end up with a file larger than the original, so use file formats that have their own metadata to preserve the size.
+
+## Building
+
+To build normally, you will need these prerequisite libraries and headers: libpng, libm and libz. (See [.github/workflows/build.yml](.github/workflows/build.yml) for example installation steps). Obviously you'll also need a C compiler and make.
+
+52 74
+To build for WASM, install the [emscripten](https://emscripten.org/) dev environment properly then compile with `make -f wasm.makefile`. This will output files in the wasm/ directory.
 
 Old README:
 

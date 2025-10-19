@@ -17,8 +17,6 @@
 <p style="color:#bbb">*WebAssembly used, no server side processing. Files are not uploaded to any servers, preserving your privacy.</p>
 <p>Restore <a href=./index.html>optar</a> encoded files from scanned PNGs (select all of them). Make sure file names are like prefix_0001.png, prefix_0002.png etc. (prefix can be arbitrary, for example, prefix of "data.txt" will have files data.txt_0001.png, data.txt_0002.png and final output file will be called data.txt).</p>
 
-<p><b>NOTE</b>: Do not change the format from default - that is currently unsupported due to the way x/y crosses were hardcoded in unoptar.c during compile time and have not been refactored.</p>
-
 <form>
 <input type="file" id="unoptarFilesInput" multiple>
 <button id="runBtn" disabled>Run unoptar</button>
@@ -104,7 +102,7 @@ runBtn.addEventListener('click', async () => {
   	}
 
   	log("running unoptar with arguments:",[formatInput.value, prefix])
-    run([formatInput.value, prefix]);
+    callMain([formatInput.value, prefix]);
     log('unoptar finished');
 
     const outfiles = FS.readdir('/').filter(n => n == prefix);
