@@ -7,7 +7,7 @@
 #include <assert.h> /* assert */
 #include <png.h> /* libpng. Sometimes is in /usr/local/include/libpng/png.h, but that is taken
 		    care of using -I/usr/local/include/libpng in the Makefile. */
-#include <stdint.h>
+
 #include "optar.h"
 #include "parity.h"
 
@@ -31,17 +31,16 @@
 	newary[(x)+(y)*width]=c;}
 
 struct que{
-	uint32_t x;
-	uint32_t y;
+	unsigned x;
+	unsigned y;
 };
 
-static uint32_t height;
-static uint32_t unoptar_width, unoptar_height; /* In pixels, not it symbols! The whole image including
+static unsigned width, height; /* In pixels, not it symbols! The whole image including
 			   border, white surrounding etc. */
 static unsigned char *ary; /* Allocated to width*height */
 static unsigned char *newary; /* Allocated to width*height */
 
-static uint64_t histogram[256];
+static unsigned long histogram[256];
 static unsigned char global_cutlevel;
 static unsigned char fill_global_cutlevel; /* This is always set to 50% between
 					      black and white to make sure the
@@ -50,19 +49,19 @@ static unsigned char fill_global_cutlevel; /* This is always set to 50% between
 					      global_cutlevel was used for
 					      filling. */
 static unsigned char average; /* Average pixel value */
-static uint64_t corners[4][2]; /* UL, UR, LL, LR / x, y. Integers in pixel upper
+static unsigned long corners[4][2]; /* UL, UR, LL, LR / x, y. Integers in pixel upper
 			   left corners. */
-static uint64_t leftedge, rightedge, topedge, bottomedge; /* Coordinates,
+static unsigned long leftedge, rightedge, topedge, bottomedge; /* Coordinates,
 	minima/maxima of the corner coordinates. */
 static double ***crosses; /* (used to be crosses[XCROSSES][YCROSSES][2]) indexed via [x][y][coord]. Integers in pixel upper left corners. */
-static double **cutlevels; // [xcrosses][ycrosses]; Each cross has it's own cutlevel based on how it came out printed.
+static float **cutlevels; /* used to be cutlevels[XCROSSES][YCROSSES] Each cross has it's own cutlevel based on how it came out printed. */
 static int chalf_fine; /* Larger chalf for fine search */
-static int unoptar_chalf; /* In the input image, measured in input image pixels!
+static int chalf; /* In the input image, measured in input image pixels!
 		   Important difference - in the decoding, the crosses are
 		   assumed twice as small!
 
 		   Calculated by find_corners. */
-static double *search_area; /* Allocated as soon as chalf is known. Width 4*chalf+1,
+static float *search_area; /* Allocated as soon as chalf is known. Width 4*chalf+1,
 		       height 4*chalf+1. The additional "+1" is for a row
 		       (topmost) and column (leftmost) of zeroes which are
 		       a result of integration.
@@ -74,10 +73,10 @@ static double *search_area; /* Allocated as soon as chalf is known. Width 4*chal
 		       After integration, each pixel says integral including
 		       that pixel. */
 
-static uint64_t bad_01, bad_10; /* Flipped from 0 to 1 (black dirt),
+static unsigned long bad_01, bad_10; /* Flipped from 0 to 1 (black dirt),
 					flipped from 1 to 0 (white dirt) */
-static uint64_t bad_total;
-static uint64_t irreparable;
+static unsigned long bad_total;
+static unsigned long irreparable;
 
 /* These macros shift coordinates by given amount of input pixels parallel
  * with recording axes. */
@@ -94,11 +93,13 @@ static struct que *que;
 static struct que *que_end; /* First invalid */
 static struct que *rptr, *wptr;
 static FILE *input_stream;
+/* XXX output file just for unoptar */
+static FILE* output_file;
 static double output_gamma=0.454545; /* What gamma the debug output has
 			      (output number=number of photons ^ gamma) */
 static long format_height; /* Used to be the HEIGHT macro. */
-static uint32_t text_height=24;
-static uint64_t golay_stats[5]; /* 0, 1, 2, 3, 4 damaged bits */
+static unsigned text_height=24;
+static unsigned long golay_stats[5]; /* 0, 1, 2, 3, 4 damaged bits */
 
 /* -------------------- MAGIC CONSTANTS -------------------- */
 static double unsharp_mask=7 /* 0.7 */; 
@@ -106,9 +107,9 @@ static double unsharp_dist=1; /* 1 means that the neighbouring pixels will be
 				 sampled.  0.5 that halfway to the neighbouring
 				 pixels will be sampled etc. Only values up to
 				 1.0 make sense. */
-static double sync_white_cut=0.10; /* The cut used for positioning, not
+static float sync_white_cut=0.10; /* The cut used for positioning, not
 				    quantization */
-static double white_cut=0.06; /* 0 means cut in the black level, 1 cut in the
+static float white_cut=0.06; /* 0 means cut in the black level, 1 cut in the
 			       white level, 0.5 cut in the middle etc. */
 static double minmax_filter=0.5; /* Dust/scratch removal filter. The input pixel size
 			     is multiplied with this and rounded down. Then so
@@ -122,7 +123,7 @@ static double cross_trim=0.75; /* Such amount of input pixels (the big ones) wil
 /* -------------------- END OF MAGIC CONSTANTS -------------------- */
 
 /* Allocates and fills in gamma table */
-static unsigned char *make_gamma_table(double gamma)
+static unsigned char *make_gamma_table(float gamma)
 {
 	unsigned char *t;
 	int i;
@@ -133,15 +134,16 @@ static unsigned char *make_gamma_table(double gamma)
 		exit(1);
 	}
 	for (i=0;i<256;i++){
-		double r; /* Result */
+		float r; /* Result */
 
 		/* White level is 255 not 256! */
-		r=255*pow((double)i/255, gamma);
+		r=255*pow((float)i/255, gamma);
 		t[i]=floor(r+0.5);
 	}
 
 	return t;
 }
+
 
 static void *allocate_3d_matrix(size_t size, size_t r1, size_t r2, size_t r3) {
     size_t malloc_size = r1 * sizeof(char**) + r1 * r2 * sizeof(char*) + r1 * r2 * r3 * size;
@@ -202,8 +204,8 @@ static void dump_newary(char *fname)
 static void calc_histogram(void)
 {
 	unsigned char *ptr;
-	unsigned char *end=ary+(uint64_t)width*height;
-	uint64_t total=0;
+	unsigned char *end=ary+(unsigned long)width*height;
+	unsigned long long total=0;
 
 	memset(histogram, 0, sizeof(histogram));
 	for (ptr=ary;ptr<end;ptr++){
@@ -214,7 +216,7 @@ static void calc_histogram(void)
 	{
 		int i;
 		for (i=0; i<sizeof histogram/sizeof *histogram; i++)
-			total+=(uint64_t)i*histogram[i];
+			total+=(unsigned long long)i*histogram[i];
 	}
 
 	average=(total+((width*height)>>1))/(width*height);
@@ -224,10 +226,10 @@ static void calc_histogram(void)
 /* Analyzes, determines the cut level */
 static void analyze_cutlevel(void)
 {
-	double white, black;
-	uint64_t black_pixels, white_pixels;
+	float white, black;
+	unsigned long black_pixels, white_pixels;
 	int i;
-	double white_rms, black_rms; /* At the end they will be RMS of the
+	float white_rms, black_rms; /* At the end they will be RMS of the
 				       distance from average */
 #define MAXITER 32
 	int iter; /* max. MAXITER iterations */
@@ -241,12 +243,12 @@ static void analyze_cutlevel(void)
 		white_rms=black_rms=0;
 		black_pixels=white_pixels=0;
 		for (i=0;i<global_cutlevel;i++){
-			black_rms+=(double)histogram[i]
+			black_rms+=(float)histogram[i]
 				*(global_cutlevel-i)*(global_cutlevel-i);
 			black_pixels+=histogram[i];
 		}
 		for (i=global_cutlevel+1;i<sizeof histogram/sizeof *histogram;i++){
-			white_rms+=(double)histogram[i]
+			white_rms+=(float)histogram[i]
 				*(i-global_cutlevel)*(i-global_cutlevel);
 			white_pixels+=histogram[i];
 		}
@@ -293,7 +295,7 @@ static void diag_scan(int *outx, int *outy, int xin, int yin, int
 	int xbegin, x, y;
 	unsigned ctr, len;
 
-	for (xbegin=xin,len=1;xbegin<MIN(unoptar_width,unoptar_height);xbegin+=dx,len++){
+	for (xbegin=xin,len=1;xbegin<MIN(width,height);xbegin+=dx,len++){
 		x=xbegin;
 		y=yin;
 		for (ctr=len;ctr;ctr--,x-=dx,y+=dy){
@@ -337,7 +339,7 @@ static double angle(double x, double y)
 {
 	double deg;
 
-	if (fabs(x)>fabs(y)){
+	if (abs(x)>abs(y)){
 		/* Horizontal */
 		deg=180/M_PI*asin(y);
 		if (x<0) deg=180-deg;
@@ -366,7 +368,7 @@ static void find_corners(void)
 		fprintf(stderr,"Error: cannot find upper left corner\n");
 fail:
 		fprintf(stderr,"See failure_debug.pgm why.\n");
-		memcpy(newary, ary, (uint64_t)width*height);
+		memcpy(newary, ary, (unsigned long)width*height);
 		dump_newary(failure);
 		exit(1);
 	}
@@ -403,7 +405,7 @@ fail:
 	bottomedge=MAX(corners[2][1],corners[3][1]);
 
 	hpixel=(corners[1][0]+corners[3][0]
-		-corners[0][0]-corners[0][0])/2.0/width;
+		-corners[0][0]-corners[0][0])/2.0/g_width;
 	vpixel=(corners[2][1]+corners[3][1]
 		-corners[0][1]-corners[1][1])/2.0/format_height;
 	fprintf(stderr,"One bit is %G horizontal pixels and %G "
@@ -415,16 +417,16 @@ fail:
 
 		/* Take only half to prevent spurious resync to an edge of the
 		 * cross when the data mimic the other half of the cross. */
-		hchalf=hpixel*chalf*0.5;
-		vchalf=vpixel*chalf*0.5;
+		hchalf=hpixel*g_chalf*0.5;
+		vchalf=vpixel*g_chalf*0.5;
 
-		unoptar_chalf=MIN(hchalf, vchalf); 
+		chalf=MIN(hchalf, vchalf); 
 		/* Round to zero to make sure we don't catch any chaff */
 
 		/* Trim the cross by some fraction of input pixel to remove
 		 * the area affected by crosstalk. */
-		hchalf=hpixel*(chalf-cross_trim);
-		vchalf=vpixel*(chalf-cross_trim);
+		hchalf=hpixel*(g_chalf-cross_trim);
+		vchalf=vpixel*(g_chalf-cross_trim);
 
 		chalf_fine=MIN(hchalf, vchalf);
 	}
@@ -453,12 +455,12 @@ fail:
 			,angle(pixelhx, -pixelhy)-angle(pixelvx, -pixelvy));
 
 	{
-		uint64_t bytes=(long)(4*chalf+1)*(4*chalf+1)
+		unsigned long bytes=(long)(4*chalf+1)*(4*chalf+1)
 			*sizeof*search_area;
 		search_area=malloc(bytes);
 		if (!search_area){
 			fprintf(stderr,
-				"Cannot allocate search area of %llu bytes\n",
+				"Cannot allocate search area of %lu bytes\n",
 				bytes);
 			exit(1);
 
@@ -467,8 +469,8 @@ fail:
 	fprintf(stderr,"Allocating search area of %u x %u (%u) pixels.\n",
 			chalf<<1, chalf<<1, (chalf*chalf)<<2);
 
-	fprintf(stderr,"Upper corners at %llu, %llu and %llu, %llu,\n"
-		"lower corners at %llu, %llu and %llu, %llu.\n"
+	fprintf(stderr,"Upper corners at %lu, %lu and %lu, %lu,\n"
+		"lower corners at %lu, %lu and %lu, %lu.\n"
 		"Cross half for searching is %d x %d input pixels.\n",
 		corners[0][0], corners[0][1], corners[1][0], corners[1][1],
 		corners[2][0], corners[2][1], corners[3][0], corners[3][1],
@@ -487,11 +489,11 @@ static double bilinear(double ul, double ur,
 	return l*vpar+u*(1-vpar);
 }
 
-static double bilinearf(double ul, double ur,
-		double ll, double lr,
-		double hpar, double vpar)
+static float bilinearf(float ul, float ur,
+		float ll, float lr,
+		float hpar, float vpar)
 {
-	double u,l; /* Upper, lower */
+	float u,l; /* Upper, lower */
 
 	u=ur*hpar+ul*(1-hpar);
 	l=lr*hpar+ll*(1-hpar);
@@ -499,7 +501,7 @@ static double bilinearf(double ul, double ur,
 }
 
 /* x,y with integers in centers of pixels */
-static double get_pixel_interp(double x, double y)
+static float get_pixel_interp(double x, double y)
 {
 	unsigned xi, yi; /* Integer versions, rounded down */
 
@@ -514,10 +516,10 @@ static double get_pixel_interp(double x, double y)
 }
 
 /* Samples pixels and performs correction(s) */
-static double pixel_correct_sample(double x, double y)
+static float pixel_correct_sample(double x, double y)
 {
-	double val;
-	double avg; /* First sum, later average */
+	float val;
+	float avg; /* First sum, later average */
 	double hdist, vdist;
 
 	hdist=hpixel*unsharp_dist;
@@ -545,17 +547,17 @@ static double pixel_correct_sample(double x, double y)
 
 /* Returns difference from global_cutlevel. Integers in centers of pixels. Interpolates
  * for nonintegral coordinates. */
-static double diffpix(double x, double y)
+static float diffpix(double x, double y)
 {
 	return get_pixel_interp(x,y)-global_cutlevel;
 }
 
 /* Calculates a correlation with a cross. x and y are coords of the cross
  * center with integers in UL corners of pixels. */
-static double cross_correl(double x, double y)
+static float cross_correl(double x, double y)
 {
 	double dx, dy;
-	double sum =0;
+	float sum =0;
 
 	/* -0.5 for conversion corners -> centers, +0.5 for conversion
 	 * cross center -> sample point 1/2 pixel away from the cross
@@ -572,7 +574,7 @@ static double cross_correl(double x, double y)
 }
 
 /* Range from 0 to 4*chalf, inclusive */
-static double getsearch(int xpos, int ypos)
+static float getsearch(int xpos, int ypos)
 {
 	assert (xpos>=0);
 	assert (xpos<=4*chalf);
@@ -585,9 +587,9 @@ static double getsearch(int xpos, int ypos)
 /* xpos says the cross offset. 0,0 means at the original position from around
  * which the search_area was loaded. The range is -chalf to chalf
  * (inclusive). The input must be in that range, otherwise crash */
-static double cross_correl_search(int xpos, int ypos)
+static float cross_correl_search(int xpos, int ypos)
 {
-	double sum;
+	float sum;
 
 	assert(xpos>=-chalf);
 	assert(xpos<=chalf);
@@ -627,7 +629,7 @@ static double cross_correl_search(int xpos, int ypos)
 static void integrate_search_area(void)
 {
 	int x, y;
-	double *ptr;
+	float *ptr;
 
 	/* Horizontal integration */
 	ptr=search_area;
@@ -651,14 +653,14 @@ static void cross_stats(unsigned cx, unsigned cy)
 {
 	double centerx=crosses[cx][cy][0];
 	double centery=crosses[cx][cy][1];
-	int hpixelhalf=floor(hpixel*(chalf-cross_trim));
-	int vpixelhalf=floor(vpixel*(chalf-cross_trim));
-	double black_rms=0, white_rms=0;
+	int hpixelhalf=floor(hpixel*(g_chalf-cross_trim));
+	int vpixelhalf=floor(vpixel*(g_chalf-cross_trim));
+	float black_rms=0, white_rms=0;
 	int xoff, yoff;
 	long val;
-	double white, black;
-	uint64_t whitepixels=0, blackpixels=0;
-	double cutlevel_result;
+	float white, black;
+	unsigned long whitepixels=0, blackpixels=0;
+	float cutlevel_result;
 
 	for (xoff=-hpixelhalf; xoff<=hpixelhalf; xoff++)
 		for (yoff=-vpixelhalf; yoff<=vpixelhalf; yoff++){
@@ -696,7 +698,7 @@ static void cross_stats(unsigned cx, unsigned cy)
 static void load_search_area(double centerx, double centery)
 {
 	int xoff, yoff;
-	double *ptr=search_area;
+	float *ptr=search_area;
 
 	for (yoff=-2*chalf-1; yoff<2*chalf; yoff++)
 		for (xoff=-2*chalf-1; xoff<2*chalf; xoff++){
@@ -723,12 +725,12 @@ static void resync_cross(double *coordpair)
 			   step. They perform steps parallel to the recording
 			   axes. */
 	int xoffmax, yoffmax; /* Step during which the maximum was reached */
-	double max; /* How much was reached during maximum */
+	float max; /* How much was reached during maximum */
 	double xmax, ymax; /* Later it's calculated in which pixel position
 			      the maximum was calculated, with subpixel
 			      precision. Coords of cross center with integers
 			      in corners. */
-	double result;
+	float result;
 
 	load_search_area(coordpair[0], coordpair[1]);
 	integrate_search_area(); /* Precalculates - dynamic programming */
@@ -797,33 +799,29 @@ static void sync_crosses(void)
 	double rightx, righty, downx, downy; /* Two cross pitch vectors */
 
 	/* Calculate the estimated cross pitch vectors */
-	rightx=((double)corners[1][0]+corners[3][0]-corners[0][0]-corners[2][0])
-		/2*cpitch/width;
-	righty=((double)corners[1][1]+corners[3][1]-corners[0][1]-corners[2][1])
-		/2*cpitch/width;
-	downx=((double)corners[2][0]+corners[3][0]-corners[0][0]-corners[1][0])
-		/2*cpitch/format_height;
-	downy=((double)corners[2][1]+corners[3][1]-corners[0][1]-corners[1][1])
-		/2*cpitch/format_height;
+	rightx=((double)corners[1][0]+corners[3][0]-corners[0][0]-corners[2][0]) /2*g_cpitch/g_width;
+	righty=((double)corners[1][1]+corners[3][1]-corners[0][1]-corners[2][1]) /2*g_cpitch/g_width;
+	downx=((double)corners[2][0]+corners[3][0]-corners[0][0]-corners[1][0]) /2*g_cpitch/format_height;
+	downy=((double)corners[2][1]+corners[3][1]-corners[0][1]-corners[1][1]) /2*g_cpitch/format_height;
 
 	/* Load the upper left cross with an estimate of it's position */
 	crosses[0][0][0]=bilinear(
 		corners[0][0], corners[1][0],
 		corners[2][0], corners[3][0],
-		(double)(border+chalf)/width,
-		(double)(border+chalf)/format_height);
+		(double)(g_border+g_chalf)/g_width,
+		(double)(g_border+g_chalf)/format_height);
 	crosses[0][0][1]=bilinear(
 		corners[0][1], corners[1][1],
 		corners[2][1], corners[3][1],
-		(double)(border+chalf)/width,
-		(double)(border+chalf)/format_height);
+		(double)(g_border+g_chalf)/g_width,
+		(double)(g_border+g_chalf)/format_height);
 
 	fprintf(stderr,"Finding crosses (%u lines), numbers indicate "
-			"individual cutlevels:\n", ycrosses);
+			"individual cutlevels:\n", g_ycrosses);
 
-	for (cy=0;cy<ycrosses;cy++){
+	for (cy=0;cy<g_ycrosses;cy++){
 		fprintf(stderr,"%3u: ",cy);
-		for (cx=0;cx<xcrosses;cx++){
+		for (cx=0;cx<g_xcrosses;cx++){
 			if (cx>0){
 				/* Copy from left */
 				crosses[cx][cy][0]=crosses[cx-1][cy][0]+rightx;
@@ -843,7 +841,7 @@ static void sync_crosses(void)
 /* x,y coords in bit matrix. 0,0 is in the upper left cross UL corner.
  * Returns pixel position with integers in centers of pixels. Interpolates
  * also the cutlevel */
-static void bit_coord(double *xout, double *yout, double *cutlevel,
+static void bit_coord(double *xout, double *yout, float *cutlevel,
 		int x, int y)
 {
 	unsigned cx, cy; /* Cross number */
@@ -852,21 +850,21 @@ static void bit_coord(double *xout, double *yout, double *cutlevel,
 
 	/* First find the cross numbers */
 	/* Division of negative numbers is probably undefined in C! */
-	if (x<chalf) cx=0;
-	else cx=(x-chalf)/cpitch;
-	if (y<chalf) cy=0;
-	else cy=(y-chalf)/cpitch;
-	if (cx>xcrosses-2) cx=xcrosses-2;
-	if (cy>ycrosses-2) cy=ycrosses-2;
+	if (x<g_chalf) cx=0;
+	else cx=(x-g_chalf)/g_cpitch;
+	if (y<g_chalf) cy=0;
+	else cy=(y-g_chalf)/g_cpitch;
+	if (cx>g_xcrosses-2) cx=g_xcrosses-2;
+	if (cy>g_ycrosses-2) cy=g_ycrosses-2;
 
 	/* Now subtrack cross coordinate */
-	x-=cx*cpitch+chalf;
-	y-=cy*cpitch+chalf;
-	/* x,y now the remainders. Can be negative or more than CPITCH! */
+	x-=cx*g_cpitch+g_chalf;
+	y-=cy*g_cpitch+g_chalf;
+	/* x,y now the remainders. Can be negative or more than g_cpitch! */
 
 	/* Calculate double precision remainders about from 0 to 1 (not always) */
-	xrem=((double)x+0.5)/cpitch;
-	yrem=((double)y+0.5)/cpitch;
+	xrem=((double)x+0.5)/g_cpitch;
+	yrem=((double)y+0.5)/g_cpitch;
 
 	xd=bilinear(
 		crosses[cx][cy][0], crosses[cx+1][cy][0],
@@ -898,16 +896,17 @@ static void read_payload_bit(unsigned char bit)
 	accu<<=1;
 	accu|=bit&1;
 	if (accu&(1<<8)){
-		putchar(accu&0xff);
+		// putchar(accu&0xff);
+		fputc(accu&0xff, output_file);
 		accu=1;
 	}
 }
 
 #if FEC_ORDER !=1
 /* Cuts out given bit and shifts the upper part */
-static uint64_t shrink(uint64_t in, unsigned bitpos)
+static unsigned long shrink(unsigned long in, unsigned bitpos)
 {
-	uint64_t high;
+	unsigned long high;
 	in&=~(1<<bitpos); /* Zero out the bit */
 	high=in;
 	in&=(1UL<<bitpos)-1;
@@ -985,7 +984,7 @@ static void print_badbit(unsigned symbol, unsigned bit, unsigned dir)
 		bad_total++;
 	}
 
-	seq=symbol+bit*fec_syms;
+	seq=symbol+bit*g_fec_syms;
 	seq2xy(&x, &y, seq);
 	bit_coord(&xd, &yd, NULL, x, y);
 	xd=floor(xd+0.5);
@@ -1003,12 +1002,12 @@ static void print_badbit(unsigned symbol, unsigned bit, unsigned dir)
 static void print_badbit_finish(void)
 {
 	if (bad_total){
-		fprintf(stderr,"\n%llu bits bad from %u, bit error rate %G%%. "
+		fprintf(stderr,"\n%lu bits bad from %d, bit error rate %G%%. "
 				"%G%% black dirt, %G%% white dirt and "
-				"%llu (%G%%) irreparable.\n",
+				"%lu (%G%%) irreparable.\n",
 				bad_total,
-				usedbits, 
-				100*(double)(bad_total)/usedbits,
+				g_usedbits, 
+				100*(double)(bad_total)/g_usedbits,
 				100*(double)bad_01/(bad_total),
 				100*(double)bad_10/(bad_total),
 				irreparable,
@@ -1018,12 +1017,12 @@ static void print_badbit_finish(void)
 #if FEC_ORDER == 1
 	fprintf(stderr,"Golay stats\n"
 		       "===========\n"
-		"0 bad bits      %llu\n"
-		"1 bad bit       %llu\n"
-		"2 bad bits      %llu\n"
-		"3 bad bits      %llu\n"
-		"4 bad bits      %llu\n"
-		"total codewords %llu\n"
+		"0 bad bits      %lu\n"
+		"1 bad bit       %lu\n"
+		"2 bad bits      %lu\n"
+		"3 bad bits      %lu\n"
+		"4 bad bits      %lu\n"
+		"total codewords %lu\n"
 	, golay_stats[0]
 	, golay_stats[1]
 	, golay_stats[2]
@@ -1034,7 +1033,7 @@ static void print_badbit_finish(void)
 #endif
 }
 
-void golay_bad_bits(uint64_t right, uint64_t wrong, unsigned
+void golay_bad_bits(unsigned long right, unsigned long wrong, unsigned
 		long symno)
 {
 	int bit; /* 23 MSB, 0 LSB */
@@ -1049,7 +1048,7 @@ void golay_bad_bits(uint64_t right, uint64_t wrong, unsigned
 
 }
 
-static uint64_t ungolay(uint64_t in, uint64_t symno)
+static unsigned long ungolay(unsigned long in, unsigned long symno)
 {
 	unsigned data=in>>12;
 
@@ -1092,7 +1091,7 @@ static uint64_t ungolay(uint64_t in, uint64_t symno)
 #if FEC_ORDER !=1
 /* symno is just to figure out xy when printing broken bits. Only the
  * lowest FEC_LARGEBITS are taken into account on input. */
-static uint64_t unhamming(uint64_t in, uint64_t symno)
+static unsigned long unhamming(unsigned long in, unsigned long symno)
 {
 	unsigned bugpos=0;
 
@@ -1149,10 +1148,10 @@ static uint64_t unhamming(uint64_t in, uint64_t symno)
 }
 #endif /* FEC_ORDER */
 
-static void read_hamming_bit(unsigned char input, uint64_t symno)
+static void read_hamming_bit(unsigned char input, unsigned long symno)
 {
 	static unsigned accubits;
-	static uint64_t accu;
+	static unsigned long accu;
 
 	accu<<=1;
 	accu|=input&1;
@@ -1182,21 +1181,21 @@ void reset_stats(void)
 
 static void read_syms(void)
 {
-	uint64_t hamming_sym; /* Hamming symbol sequence number */
+	unsigned long hamming_sym; /* Hamming symbol sequence number */
 	unsigned bit;
-	uint64_t seq;
+	unsigned long seq;
 	int x,y; /* 0,0 is upper left pixel of upper left cross */
 	double xcoord, ycoord; /* Integers in centers */
-	double pixval;
-	double local_cutlevel;
+	float pixval;
+	float local_cutlevel;
 
 	reset_stats();
 
-	for (hamming_sym=0;hamming_sym<fec_syms;hamming_sym++){
+	for (hamming_sym=0;hamming_sym<g_fec_syms;hamming_sym++){
 		for (bit=0;bit<FEC_LARGEBITS;bit++){
 			/* Bit here will correspond to bit FEC_SMALLBITS-1
 			 * in the Hamming register. */
-			seq=hamming_sym+bit*fec_syms;
+			seq=hamming_sym+bit*g_fec_syms;
 			seq2xy(&x, &y, seq);
 			bit_coord(&xcoord, &ycoord, &local_cutlevel, x, y);
 			pixval=pixel_correct_sample(xcoord, ycoord);
@@ -1226,9 +1225,9 @@ static void read_syms(void)
 static void print_chan_info(void)
 {
 	fprintf(stderr,"Unformatted channel capacity %G kB, ",
-			(double)width*format_height/8/1000);
+			(double)g_width*format_height/8/1000);
 	fprintf(stderr,"formatted raw channel capacity %G kB, ",
-			(double)totalbits/8/1000);
+			(double)g_totalbits/8/1000);
 	fprintf(stderr,"net "
 #if FEC_ORDER == 1
 			"Golay"
@@ -1236,20 +1235,20 @@ static void print_chan_info(void)
 			"Hamming"
 #endif
 			" payload capacity %G kB, ",
-			(double)netbits/8/1000);
-	fprintf(stderr,"%u "
+			(double)g_netbits/8/1000);
+	fprintf(stderr,"%d "
 #if FEC_ORDER == 1
 			"Golay"
 #else
 			"Hamming"
 #endif
-			" symbols, ", fec_syms);
-	fprintf(stderr,"%llu bits unused (incomplete Hamming symbol), ",
-			totalbits-usedbits);
+			" symbols, ", g_fec_syms);
+	fprintf(stderr,"%lu bits unused (incomplete Hamming symbol), ",
+			g_totalbits-g_usedbits);
 	fprintf(stderr,"border taking %G%% of unformatted capacity, ",
-			100*(1-(double)(data_width)*(data_height)/width/format_height));
+			100*(1-(double)(g_data_width)*(g_data_height)/g_width/format_height));
 	fprintf(stderr,"border with crosses taking %G%% of unformatted capacity, ",
-			100*(1-(double)(totalbits)/width/format_height));
+			100*(1-(double)(g_totalbits)/g_width/format_height));
 	fprintf(stderr,"border with crosses and "
 #if FEC_ORDER == 1
 			"Golay"
@@ -1258,7 +1257,7 @@ static void print_chan_info(void)
 #endif
 			" taking %G%% of "
 			"unformatted capacity.\n",
-			100*(1-(double)(netbits)/width/format_height));
+			100*(1-(double)(g_netbits)/g_width/format_height));
 }
 
 static void print_marks(void)
@@ -1270,8 +1269,8 @@ static void print_marks(void)
 	mark(corners[2][0], corners[2][1]);
 	mark(corners[3][0], corners[3][1]);
 
-	for (cy=0;cy<ycrosses;cy++)
-		for (cx=0;cx<xcrosses;cx++){
+	for (cy=0;cy<g_ycrosses;cy++)
+		for (cx=0;cx<g_xcrosses;cx++){
 			mark(crosses[cx][cy][0],crosses[cx][cy][1]);
 			mark(
 				 PSHIFTX(crosses[cx][cy][0], chalf, 0)
@@ -1341,9 +1340,9 @@ static void blur_copy(void)
 static void max(void)
 {
 	unsigned char *ptr, *end, *linestart;
-	uint64_t yctr;
+	unsigned long yctr;
 
-	ptr=ary+(uint64_t)width*height;
+	ptr=ary+(unsigned long)width*height;
 	for (yctr=height;yctr;yctr--){
 		linestart=ptr-width;
 		ptr--;
@@ -1352,7 +1351,7 @@ static void max(void)
 	}
 
 	end=ary+width;
-	for (ptr=ary+(uint64_t)width*height-1;ptr>=end; ptr--)
+	for (ptr=ary+(unsigned long)width*height-1;ptr>=end; ptr--)
 		ptr[0]=MAX(ptr[0],*(ptr-width));
 
 }
@@ -1362,7 +1361,7 @@ static void min(void)
 {
 	unsigned char *ptr;
 	unsigned char *end;
-	uint64_t yctr;
+	unsigned long yctr;
 
 	for (ptr=ary,yctr=height;yctr;yctr--){
 		for (end=ptr+width-1;ptr<end;ptr++)
@@ -1370,7 +1369,7 @@ static void min(void)
 		ptr++;
 	}
 
-	end=ary+(uint64_t)width*(height-1);
+	end=ary+(unsigned long)width*(height-1);
 	for (ptr=ary; ptr<end; ptr++)
 		ptr[0]=MIN(ptr[0],ptr[width]);
 
@@ -1379,7 +1378,7 @@ static void min(void)
 /* Calculate how many pixels */
 static void process_minmax(void)
 {
-	double npix;
+	float npix;
 	int i;
 	
 	npix=sqrt(vpixel*hpixel); /* Average pixel */
@@ -1405,8 +1404,7 @@ static void process_minmax(void)
  * loaded from the commandline. */
 static void init_dimensions(void)
 {
-	// xcrosses and ycrosses are initiated in parse_format
-	format_height=2*border+data_height+text_height;
+	format_height=2*g_border+g_data_height+text_height;
 }
 
 static void que_write(unsigned x, unsigned y)
@@ -1444,9 +1442,9 @@ static void try_copy_white(unsigned x, unsigned y, char test)
 {
 	unsigned char *destptr;
 
-	if (test&&ary[(uint64_t)y*width+x]<fill_global_cutlevel) 
+	if (test&&ary[(unsigned long)y*width+x]<fill_global_cutlevel) 
 		return; /* Black */
-	destptr=newary+(uint64_t)y*width+x;
+	destptr=newary+(unsigned long)y*width+x;
 	if (!*destptr) return; /* Already copied through */
 	*destptr=0;
 	que_write(x,y);
@@ -1471,15 +1469,15 @@ static void erase_dirt(void)
 {
 	unsigned char *src, *dest;
 	unsigned char *destend;
-	uint64_t dirt_pixels=0;
+	unsigned long dirt_pixels=0;
 
-	for (destend=ary+(uint64_t)width*height, src=newary, dest=ary
+	for (destend=ary+(unsigned long)width*height, src=newary, dest=ary
 			; dest<destend
 			;src++, dest++){
 		*dest|=*src;
 		dirt_pixels+=*src&1;
 	}
-	fprintf(stderr,"erased %llu pixels of dirt.\n", dirt_pixels);
+	fprintf(stderr,"erased %lu pixels of dirt.\n", dirt_pixels);
 }
 
 /* Clobbers newary */
@@ -1487,7 +1485,7 @@ static void remove_dirt_from_border(void)
 {
 	unsigned que_size;
 
-	que_size=((uint64_t)MAX(width, height)<<1)+5;
+	que_size=((unsigned long)MAX(width, height)<<1)+5;
 	/* Not that I would really know the real bound */
 	que=malloc(que_size*sizeof *que);
 	if (!que){
@@ -1496,7 +1494,7 @@ static void remove_dirt_from_border(void)
 	}
 	que_end=que+que_size;
 
-	memset(newary, 0xff, (uint64_t)width*height);
+	memset(newary, 0xff, (unsigned long)width*height);
 
 	fill(0,0,1);
 	fill(width>>1,0,1);
@@ -1532,7 +1530,7 @@ void read_png(void)
 	height=png_get_image_height(png_ptr,info_ptr);
 	fprintf(stderr,"Input %u x %u pixels, taking %G megabytes for 2 "
 			"framebuffers.\n"
-			,width, height, 2*(double)width*height/1e6);
+			,width, height, 2*(float)width*height/1e6);
 	if (png_get_gAMA(png_ptr,info_ptr, &gamma))
 		png_set_gamma(png_ptr, 1.0, gamma);
 	else
@@ -1571,8 +1569,8 @@ void read_png(void)
 	 */
 	number_of_passes=png_set_interlace_handling(png_ptr);
 	png_read_update_info(png_ptr,info_ptr);
-	ary=malloc((uint64_t)width*height);
-	newary=malloc((uint64_t)width*height);
+	ary=malloc((unsigned long)width*height);
+	newary=malloc((unsigned long)width*height);
 	if (!(ary&&newary)){
 		fprintf(stderr,"Cannot allocate framebuffers.\n");
 		exit(1);
@@ -1580,8 +1578,8 @@ void read_png(void)
 	ptrs=malloc(height*sizeof(*ptrs));
 	if (!ptrs){
 		fprintf(stderr
-			,"Cannot allocate %llu bytes for auxilliary buffer\n"
-			,height*(uint64_t)(sizeof*ptrs));
+			,"Cannot allocate %lu bytes for auxilliary buffer\n"
+			,height*(unsigned long)(sizeof*ptrs));
 		exit(1);
 	}
 	for (y1=0;y1<height;y1++) ptrs[y1]=ary+width*y1;
@@ -1684,14 +1682,14 @@ static void parse_format(char *format)
 
 	sscanf(format,"%u-%u-%u-%u-%u-%u-%u-%u",
 			&dummy,
-			&xcrosses,
-			&ycrosses,
+			&g_xcrosses,
+			&g_ycrosses,
 			&dummy,
 			&dummy,
 			&dummy,
 			&dummy,
 			&text_height);
-	fprintf(stderr,"Format: xcrosses=%d ycrosses=%d text_height=%u\n", xcrosses, ycrosses, text_height);
+	fprintf(stderr,"Format: xcrosses=%d ycrosses=%d text_height=%u\n", g_xcrosses, g_ycrosses, text_height);
 }
 
 /* argv:
@@ -1719,25 +1717,30 @@ int main(int argc, char **argv)
 " to the optar, 2nd argument is the filename part"
 " before the underscore:\n"
 "\n"
-"unoptar 0-65-93-24-3-1-2-24 scan > out.ogg\n"
+"unoptar 0-%d-%d-24-3-1-2-24 scan > out.ogg\n"
 "\n"
 "out.ogg is just an example of payload file you can have any"
 " kind of file instead of that.\n"
-"\n"
+"\n",g_xcrosses,g_ycrosses
 );
 		exit(1);
 	}
 
 	parse_format(argv[1]);
-	init_values(xcrosses,ycrosses);
-	/* This must after all dimension-related parameters are decoded. */
-	crosses = allocate_3d_matrix(sizeof(double), xcrosses, ycrosses, 2);
-	cutlevels = malloc(xcrosses * ycrosses);
+	init_values(g_xcrosses, g_ycrosses);
 	init_dimensions();
+	/* This must after all dimension-related parameters are decoded. */
+	crosses = allocate_3d_matrix(sizeof(double), g_xcrosses, g_ycrosses, 2);
 
+	cutlevels = malloc(g_xcrosses * sizeof(float*));
+	for (unsigned int i = 0; i < g_xcrosses; i++) {
+	    cutlevels[i] = malloc(g_ycrosses * sizeof(*cutlevels[i]));
+	}
 
 	print_chan_info();
+	output_file = fopen(argv[2],"wb");
 	process_files(argv[2]);
+	fclose(output_file);
 
 	free(crosses);
 	free(cutlevels);

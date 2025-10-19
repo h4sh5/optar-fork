@@ -35,7 +35,7 @@ void dump_ary(void)
 		"P5\n"
 		"%u %u\n"
 		"255\n"
-		,width, height);
+		,g_width, height);
 
 	fwrite(ary, ary_size, 1, output_stream);
 }
@@ -50,10 +50,10 @@ void write_channelbit(unsigned char bit, unsigned long seq)
 	bit=-bit;
 	bit=~bit; /* White=bit 0, black=bit 1 */
 	seq2xy(&x, &y, seq); /* Returns without borders! */
-	x+=border;
-	y+=border;
+	x+=g_border;
+	y+=g_border;
 	// *ary[x+y*width]=bit;
-	ary[x+y*width]=bit;
+	ary[x+y*g_width]=bit;
 	seq++;
 }
 
@@ -99,30 +99,30 @@ void do_border(void)
 	unsigned c;
 	unsigned char *ptr = ary;
 
-	memset(ptr,0,border*width);
+	memset(ptr,0,g_border*g_width);
 	// fprintf(stderr, "[do_border] done 1st memset..\n");
-	ptr += border*width;
-	for (c=data_height;c;c--){
-		memset(ptr,0,border);
-		ptr+=width;
-		memset(ptr-border,0,border);
+	ptr += g_border*g_width;
+	for (c=g_data_height;c;c--){
+		memset(ptr,0,g_border);
+		ptr+=g_width;
+		memset(ptr-g_border,0,g_border);
 	}
-	memset(ptr,0,text_height*width);
-	ptr+=text_height*width;
+	memset(ptr,0,text_height*g_width);
+	ptr+=text_height*g_width;
 	/* border bytes into the bottom border */
-	memset(ptr,0,border*width);
+	memset(ptr,0,g_border*g_width);
 }
 
 void do_cross(unsigned int x, unsigned int y)
 {
-	unsigned char *ptr = ary + y*width + x;
+	unsigned char *ptr = ary + y*g_width + x;
 	unsigned c;
 
-	for (c=chalf;c!=0;c--,ptr+=width){
-		memset(ptr,0,chalf);
-		memset(ptr+chalf,0xff,chalf);
-		memset(ptr+chalf*width,0xff,chalf);
-		memset(ptr+chalf*(width+1),0,chalf);
+	for (c=g_chalf;c!=0;c--,ptr+=g_width){
+		memset(ptr,0,g_chalf);
+		memset(ptr+g_chalf,0xff,g_chalf);
+		memset(ptr+g_chalf*g_width,0xff,g_chalf);
+		memset(ptr+g_chalf*(g_width+1),0,g_chalf);
 		
 	}
 }
@@ -131,30 +131,30 @@ void crosses(void)
 {
 	unsigned x,y;
 
-	for (y=border;y<=height-text_height-border-2*chalf;y+=cpitch)
-		for (x=border;x<=width-border-2*chalf;x+=cpitch) {
+	for (y=g_border;y<=height-text_height-g_border-2*g_chalf;y+=g_cpitch)
+		for (x=g_border;x<=g_width-g_border-2*g_chalf;x+=g_cpitch) {
 			// fprintf(stderr, "[crosses] x:%d y:%d\n", x,y);
 			do_cross(x,y);
 
 		}
 }
 
-/* x is in the range 0 to data_width-1 */
+/* x is in the range 0 to g_data_width-1 */
 void text_block (unsigned int destx,  unsigned int srcx, unsigned int txt_width)
 {
 	int x, y;
 	unsigned char *srcptr;
 	unsigned char *destptr;
 
-	if (destx+txt_width>data_width) {
+	if (destx+txt_width>g_data_width) {
 		fprintf(stderr, "letter doesn't fit (destx:%u srcx:%u txt_width:%d)\n",destx,srcx,txt_width);
 		return; /* Letter doesn't fit */
 	}
 
 	srcptr=(unsigned char *)(void *)header_data+srcx;
-	destptr= ary + width*(border+data_height)+border+destx;
+	destptr= ary + g_width*(g_border+g_data_height)+g_border+destx;
 
-	for (y=0;y<text_height;y++, srcptr+=font_width, destptr+=width){
+	for (y=0;y<text_height;y++, srcptr+=font_width, destptr+=g_width){
 		for (x=0;x<txt_width;x++){
 			destptr[x]=header_data_cmap[srcptr[x]][0]&0x80?0xff:0;
 		}
@@ -164,27 +164,27 @@ void text_block (unsigned int destx,  unsigned int srcx, unsigned int txt_width)
 void label()
 {
 	unsigned x=0;
-	char txt[data_width/text_width];
+	char txt[g_data_width/g_text_width];
 	int txtsz = sizeof txt;
 	unsigned char *ptr;
 	unsigned txtlen;
-	// fprintf(stderr, "font_width:%d font_height:%d text_width:%d\n",font_width,font_height, text_width);
+	// fprintf(stderr, "font_width:%d font_height:%d g_text_width:%d\n",font_width,font_height, g_text_width);
 	snprintf(txt, txtsz, "  0-%u-%u-%u-%u-%u-%u-%u %u/%u %s"
-		, xcrosses, ycrosses, cpitch, chalf
-		, FEC_ORDER, border, text_height
+		, g_xcrosses, g_ycrosses, g_cpitch, g_chalf
+		, FEC_ORDER, g_border, text_height
 		,file_number,n_pages
 		, file_label);
 	txtlen=strlen((char *)(void *)txt);
 	// fprintf(stderr, "txt:%s strlen:%d\n",txt,txtlen);
 
 	assert(font_height==text_height);
-	x=font_width - text_width * (127-' ');
-	text_block(0,text_width * (127-' '), x);
+	x=font_width - g_text_width * (127-' ');
+	text_block(0,g_text_width * (127-' '), x);
 	for (ptr=(unsigned char *)(void *)txt
 			;ptr<(unsigned char *)(void *)txt+txtlen;ptr++){
 		if (*ptr>=' ' && *ptr<=127){ // ascii printable range
-			text_block(x,text_width*(*ptr-' '), text_width);
-			x+=text_width;
+			text_block(x,g_text_width*(*ptr-' '), g_text_width);
+			x+=g_text_width;
 		}
 	}
 }
@@ -242,7 +242,7 @@ void write_payloadbit(unsigned char bit)
 		accu=hamming(accu);
 #endif /* FEC_ORDER */
 
-		if (hamming_symbol>=fec_syms){
+		if (hamming_symbol>=g_fec_syms){
 			/* We couldn't write into the page, we need to make
 			 * another one */
 			new_file();
@@ -253,7 +253,7 @@ void write_payloadbit(unsigned char bit)
 		for (shift=FEC_LARGEBITS-1;shift>=0;shift--)
 			write_channelbit(accu>>shift
 				, hamming_symbol+(FEC_LARGEBITS-1-shift)
-				*fec_syms);
+				*g_fec_syms);
 		accu=1;
 		hamming_symbol++;
 	}
@@ -302,8 +302,7 @@ void open_input_file(char *fname)
 		perror("");
 		exit(1);
 	}
-	n_pages=(((unsigned long)ftell(input_stream)<<3)+netbits-1)
-		/netbits;
+	n_pages=(((unsigned long)ftell(input_stream)<<3)+g_netbits-1)/g_netbits;
 	if (fseek(input_stream,0, SEEK_SET)){
 		fprintf(stderr,"optar: cannot seek to the beginning of %s: "
 			,fname);
@@ -321,7 +320,7 @@ int main(int argc, char **argv)
 	if (argc<2){
 		fprintf(stderr,
 "\n"
-"Usage: optar <input file> [filename base] [xcrosses] [ycrosses]\n"
+"Usage: optar <input file> [filename base] [xcrosses] [g_ycrosses]\n"
 "\n"
 "xcrosses and ycrosses have a default value of 32 x 46, increase them to encode more data on one page but sacrifices accuracy\n"
 "Will take the input file as data payload and produce optar_out_????.pgm which contain the input file encoded onto paper, with error correction codes, and automatically split into multiple files when necessary. Those pgm's are supposed to be printed on laser printer at least 600 DPI for example using GIMP, or use the included pgm2ps to  convert them to PostScript and print for example using a PostScript viewer program.\n"
@@ -331,18 +330,18 @@ int main(int argc, char **argv)
 	}
 
 	if (argc >= 4) {
-		xcrosses = atoi(argv[3]);
-		ycrosses = atoi(argv[4]);
-		fprintf(stderr, "taking arguments xcrosses=%d and ycrosses=%d\n", xcrosses, ycrosses);
+		g_xcrosses = atoi(argv[3]);
+		g_ycrosses = atoi(argv[4]);
+		fprintf(stderr, "taking arguments xcrosses=%d and ycrosses=%d\n", g_xcrosses, g_ycrosses);
 	}
 
-	fprintf(stderr,"initializing dimensions values using xcrosses=%d ycrosses=%d..\n", xcrosses, ycrosses);
-	init_values(xcrosses, ycrosses);
-	height= (2*border+data_height+text_height);
+	fprintf(stderr,"initializing dimensions values using xcrosses=%d ycrosses=%d..\n", g_xcrosses, g_ycrosses);
+	init_values(g_xcrosses, g_ycrosses);
+	height= (2*g_border+g_data_height+text_height);
 	fprintf(stderr, "done initializing values..\n");
-	fprintf(stderr, "width:%d height:%d totalbits:%llu netbits:%d\n",width,height,totalbits,netbits);
-	ary = malloc(width*height);
-	ary_size = width*height;
+	fprintf(stderr, "width:%d height:%d totalbits:%ld netbits:%d\n",g_width,height,g_totalbits,g_netbits);
+	ary = malloc(g_width*height);
+	ary_size = g_width*height;
 	open_input_file(argv[1]);
 
 	if (argc>=3) file_label=base=(void *)argv[2];
@@ -355,7 +354,7 @@ int main(int argc, char **argv)
 	}
 	new_file();
 	feed_data();
-	printf("format: 0-%u-%u-%u-%u-%u-%u-%u\n", xcrosses, ycrosses,cpitch, chalf, FEC_ORDER, border, text_height);
+	printf("format: 0-%u-%u-%u-%u-%u-%u-%u\n", g_xcrosses, g_ycrosses,g_cpitch, g_chalf, FEC_ORDER, g_border, text_height);
 
 	fclose(input_stream);
 

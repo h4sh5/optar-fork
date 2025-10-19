@@ -1,6 +1,7 @@
 LDFLAGS=-L/usr/local/lib `libpng-config --L_opts`
-#add -sUSE_LIBPNG=1 for emcc
-CFLAGS=-O3 -Wall -Wuninitialized -fomit-frame-pointer -funroll-loops -DNODEBUG `libpng-config --I_opts`
+#add -sUSE_LIBPNG	=1 for emcc
+# add -g in line below for debug with gdb
+CFLAGS=-O3 -Wall -Wuninitialized -fomit-frame-pointer -funroll-loops `libpng-config --I_opts`
 LDLIBS=-lpng -lz -lm
 
 all: optar unoptar

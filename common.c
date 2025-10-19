@@ -5,56 +5,56 @@
 #include "optar.h"
 
 
-unsigned data_width;
-unsigned data_height;
-unsigned width;
+unsigned g_data_width;
+unsigned g_data_height;
+unsigned g_width;
 
 /* Properties of the narrow horizontal strip, with crosses */
-unsigned narrowheight;
-unsigned gapwidth;
-unsigned narrowwidth; /* Useful width */
-unsigned narrowpixels; /* Useful pixels */
+unsigned g_narrowheight;
+unsigned g_gapwidth;
+unsigned g_narrowwidth; /* Useful width */
+unsigned g_narrowpixels; /* Useful pixels */
 
-unsigned wideheight;
-unsigned widewidth;
-unsigned widepixels;
+unsigned g_wideheight;
+unsigned g_widewidth;
+unsigned g_widepixels;
 
-unsigned repheight;
-unsigned reppixels;
+unsigned g_repheight;
+unsigned g_reppixels;
 
-long totalbits;
+long g_totalbits;
 
-unsigned fec_syms;
-unsigned netbits;
-unsigned usedbits;
+unsigned g_fec_syms;
+unsigned g_netbits;
+unsigned g_usedbits;
 
-unsigned border = 2;
-unsigned chalf = 3;
-unsigned cpitch = 24;
-unsigned xcrosses = 32;
-unsigned ycrosses = 46;
-unsigned text_width = 13; // has to be 13!! Do not change!
+unsigned g_border = 2;
+unsigned g_chalf = 3;
+unsigned g_cpitch = 24;
+unsigned g_xcrosses = 32;
+unsigned g_ycrosses = 46;
+unsigned g_text_width = 13; // has to be 13!! Do not change!
 
 /* initialize rest of the values based on xcrosses and ycrosses */
 void init_values(unsigned xcrosses_input, unsigned ycrosses_input) {
-	xcrosses = xcrosses_input;
-	ycrosses = ycrosses_input;
-	data_width = cpitch*(xcrosses-1)+2* chalf;
-	data_height =  cpitch*(ycrosses-1)+2* chalf;
-	width = 2*border+data_width;
-	narrowheight = 2*chalf;
-	gapwidth = cpitch-2*chalf;
-	narrowwidth = gapwidth*(xcrosses-1);
-	narrowpixels = narrowheight*narrowwidth;
-	wideheight = gapwidth;
-	widewidth = width-2*border;
-	widepixels = wideheight*widewidth;
-	repheight = narrowheight+wideheight;
-	reppixels = widepixels+narrowpixels;
-	totalbits = (long)reppixels*(ycrosses-1)+narrowpixels;
-	fec_syms = totalbits/FEC_LARGEBITS;
-	netbits = fec_syms*FEC_SMALLBITS;
-	usedbits = fec_syms*FEC_LARGEBITS;
+	g_xcrosses = xcrosses_input;
+	g_ycrosses = ycrosses_input;
+	g_data_width = g_cpitch*(g_xcrosses-1)+2* g_chalf;
+	g_data_height =  g_cpitch*(g_ycrosses-1)+2* g_chalf;
+	g_width = 2*g_border+g_data_width;
+	g_narrowheight = 2*g_chalf;
+	g_gapwidth = g_cpitch-2*g_chalf;
+	g_narrowwidth = g_gapwidth*(g_xcrosses-1);
+	g_narrowpixels = g_narrowheight*g_narrowwidth;
+	g_wideheight = g_gapwidth;
+	g_widewidth = g_width-2*g_border;
+	g_widepixels = g_wideheight*g_widewidth;
+	g_repheight = g_narrowheight+g_wideheight;
+	g_reppixels = g_widepixels+g_narrowpixels;
+	g_totalbits = (long)g_reppixels*(g_ycrosses-1)+g_narrowpixels;
+	g_fec_syms = g_totalbits/FEC_LARGEBITS;
+	g_netbits = g_fec_syms*FEC_SMALLBITS;
+	g_usedbits = g_fec_syms*FEC_LARGEBITS;
 
 }
 
@@ -63,9 +63,9 @@ void init_values(unsigned xcrosses_input, unsigned ycrosses_input) {
  * first cross! */
 int is_cross(unsigned x, unsigned y)
 {
-	x%=cpitch;
-	y%=cpitch;
-	return (x<2*chalf&&y<2*chalf);
+	x%=g_cpitch;
+	y%=g_cpitch;
+	return (x<2*g_chalf&&y<2*g_chalf);
 }
 
 /* Returns the coords relative to the upperloeftmost cross upper left corner
@@ -75,7 +75,7 @@ void seq2xy(int *x, int *y, unsigned seq)
 	unsigned rep; /* Repetition - number of narrow strip - wide strip pair,
 			 starting with 0 */
 
-	if (seq>=totalbits){
+	if (seq>=g_totalbits){
 		/* Out of range */
 		*x=-1;
 		*y=-1;
@@ -88,28 +88,28 @@ void seq2xy(int *x, int *y, unsigned seq)
 	 * - the above repeats (YCROSSES-1)-times
 	 * - narrow strip 
 	 */
-	rep=seq/reppixels;
-	seq=seq%reppixels;
+	rep=seq/g_reppixels;
+	seq=seq%g_reppixels;
 
-	*y=repheight*rep;
+	*y=g_repheight*rep;
 	/* Now seq is sequence in the repetition pair */
-	if (seq>=narrowpixels){
+	if (seq>=g_narrowpixels){
 		/* Second, wide strip of the pair */
-		*y+=narrowheight;
-		seq-=narrowpixels;
+		*y+=g_narrowheight;
+		seq-=g_narrowpixels;
 		/* Now seq is sequence in the wide strip */
-		*y+=seq/widewidth;
-		*x=seq%widewidth;
+		*y+=seq/g_widewidth;
+		*x=seq%g_widewidth;
 	}else{
 		/* First, narrow strip of the pair */
 		unsigned gap; /* Horizontal gap number */
-		*x=2*chalf;
-		*y+=seq/narrowwidth;
-		seq%=narrowwidth;
+		*x=2*g_chalf;
+		*y+=seq/g_narrowwidth;
+		seq%=g_narrowwidth;
 		/* seq is now sequence in the horiz. line */
-		gap=seq/gapwidth;
-		*x+=gap*cpitch;
-		seq%=gapwidth;
+		gap=seq/g_gapwidth;
+		*x+=gap*g_cpitch;
+		seq%=g_gapwidth;
 		/* seq is now sequence in the gap */
 		*x+=seq;
 	}
