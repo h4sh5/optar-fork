@@ -32,7 +32,7 @@ Example values:
 
 ```
 65 93 - 200kB encoded per A4 page (6 pages needed for 1MB)
-48 70 - 100kB per A4 page (10 pages for 1MB)
+46 66 - 100kB per A4 page (10 pages for 1MB)
 32 46 - 50kB per A4 page (23 pages for 1MB) - default
 ```
 
